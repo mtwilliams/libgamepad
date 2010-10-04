@@ -29,3 +29,18 @@ Platform Issues
 On Linux, hotplug of devices is not currently supported.  All gamepads
 must be plugged in when the application starts.  (Or, more accurately,
 when the application calls GamepadInit).
+
+Also on Linux, the gamepads must be located in the "new-style"
+/dev/input/js* devices.  Likewise, they must be numbed from 0-3
+for gamepads 1-4, respectively.  If other joystick devices are plugged
+in, they may interfere with gamepad support.
+
+Todo / Roadmap
+==============
+
+- Device hot-plugging on Linux.
+- OS X support.
+- Force feedback / haptics.
+- Win32-only headset interaction API.
+- non-Win32-only LED/XBOX-button support.
+- Feature-detection routines.
