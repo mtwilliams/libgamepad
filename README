@@ -1,0 +1,31 @@
+Gamepad Libary
+==============
+
+This is a simple library whose sole purpose is to provide an easy to
+use and portable API for accessing the extremely popular and common
+Xbox/Xbox360 gamepads.
+
+Currently supported platforms are Windows and Linux.
+
+Limitations
+===========
+
+The library only supports the functions which are compatible with
+all OSes.  Primarily missing are:
+
+- Headset/audio support
+- XBOX button support (the big button in the middle of the controller)
+- LED control support
+- Force feedback
+
+Headsets are not supported in Linux via the Xbox controller, and the
+big XBOX button and LED control are not supported via Windows.
+
+Force feedback should be available on both, but simply is implemented yet.
+
+Platform Issues
+===============
+
+On Linux, hotplug of devices is not currently supported.  All gamepads
+must be plugged in when the application starts.  (Or, more accurately,
+when the application calls GamepadInit).
