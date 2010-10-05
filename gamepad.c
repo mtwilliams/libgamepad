@@ -8,11 +8,13 @@
 #include <math.h>
 #include <string.h>
 
+#include "gamepad.h"
+
+/* Platform-specific includes */
 #if defined(WIN32)
 #	define WIN32_LEAN_AND_MEAN 1
 #	include "windows.h"
 #	include "xinput.h"
-#
 #	pragma comment(lib, "xinput.lib")
 #else
 #	include <linux/joystick.h>
@@ -20,8 +22,6 @@
 #	include <fcntl.h>
 #	include <unistd.h>
 #endif
-
-#include "gamepad.h"
 
 /* Axis information */
 typedef struct GAMEPAD_AXIS GAMEPAD_AXIS;
@@ -39,8 +39,28 @@ struct GAMEPAD_TRIGINFO {
 	float length;
 };
 
+/* Structure for state of a particular gamepad */
+typedef struct GAMEPAD_STATE GAMEPAD_STATE;
+struct GAMEPAD_STATE {
+	GAMEPAD_AXIS stick[STICK_COUNT];
+	GAMEPAD_TRIGINFO trigger[TRIGGER_COUNT];
+	int bLast, bCurrent, flags;
+	int fd;	/* for Linux */
+};
+
+/* State of the four gamepads */
+static GAMEPAD_STATE STATE[4];
+
 /* Note whether a gamepad is currently connected */
 #define FLAG_CONNECTED (1<<0)
+
+/* Prototypes */
+static void GamepadPlatformInit		(void);
+static void GamepadPlatformUpdate	(GAMEPAD_STATE* state);
+static void GamepadPlatformShutdown	(void);
+
+static void GamepadUpdateStick		(GAMEPAD_AXIS* axis, float deadzone);
+static void GamepadUpdateTrigger	(GAMEPAD_TRIGINFO* trig);
 
 /* Various values of PI */
 #define PI_1_4	0.78539816339744f
@@ -48,29 +68,39 @@ struct GAMEPAD_TRIGINFO {
 #define PI_3_4	2.35619449019234f
 #define PI		3.14159265358979f
 
-/* Structure for state of a particular gamepad */
-struct GamepadState {
-	GAMEPAD_AXIS stick[STICK_COUNT];
-	GAMEPAD_TRIGINFO trigger[TRIGGER_COUNT];
-	int bLast, bCurrent, flags;
-#if !defined(WIN32)
-	int fd;
-#endif
-};
-
-/* State of the four gamepads */
-static struct GamepadState STATE[4];
-
+/* Platform-specific implementation code */
 #if defined(WIN32)
-void GamepadInit() {
-	memset(STATE, 0, sizeof(STATE));
+
+static void GamepadPlatformInit(void) {
+	/* no Win32 initialization required */
 }
-#else
-void GamepadInit() {
+
+static void GamepadPlatformUpdate(GAMEPAD_STATE* state) {
+	XINPUT_STATE xs;
+	if (XInputGetState(i, &xs) == 0) {
+		state->flags |= FLAG_CONNECTED;
+
+		/* update state */
+		state->bCurrent = xs.Gamepad.wButtons;
+		state->trigger[TRIGGER_LEFT].value = xs.Gamepad.bLeftTrigger;
+		state->trigger[TRIGGER_RIGHT].value = xs.Gamepad.bRightTrigger;
+		state->stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
+		state->stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
+		state->stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
+		state->stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
+	} else {
+		state->flags &= ~FLAG_CONNECTED;
+	}
+}
+
+static void GamepadPlatformShutdown(void) {
+	/* no Win32 shutdown required */
+}
+
+#else /* !defined(WIN32) */
+
+static void GamepadPlatformInit(void) {
 	int i;
-
-	memset(STATE, 0, sizeof(STATE));
-
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		char dev[128];
 		snprintf(dev, sizeof(dev), "/dev/input/js%d", i);
@@ -80,149 +110,111 @@ void GamepadInit() {
 		}
 	}
 }
-#endif
 
-void GamepadShutdown() {
-#if !defined(WIN32)
+static void GamepadPlatformUpdate(GAMEPAD_STATE* state) {
+	if (state->fd != -1) {
+		struct js_event je;
+		while (read(state->fd, &je, sizeof(je)) > 0) {
+			int button;
+			switch (je.type) {
+			case JS_EVENT_BUTTON:
+				/* determine which button the event is for */
+				switch (je.number) {
+				case 0: button = BUTTON_A; break;
+				case 1: button = BUTTON_B; break;
+				case 2: button = BUTTON_X; break;
+				case 3: button = BUTTON_Y; break;
+				case 4: button = BUTTON_LEFT_SHOULDER; break;
+				case 5: button = BUTTON_RIGHT_SHOULDER; break;
+				case 6: button = BUTTON_BACK; break;
+				case 7: button = BUTTON_START; break;
+				case 8: button = 0; break; /* XBOX button  */
+				case 9: button = BUTTON_LEFT_THUMB; break;
+				case 10: button = BUTTON_RIGHT_THUMB; break;
+				default: button = 0; break;
+				}
+
+				/* set or unset the button */
+				if (je.value) {
+					state->bCurrent |= button;
+				} else {
+					state->bCurrent ^= button;
+				}
+					
+				break;
+			case JS_EVENT_AXIS:
+				/* normalize and store the axis */
+				switch (je.number) {
+				case 0:	state->stick[STICK_LEFT].x = je.value; break;
+				case 1:	state->stick[STICK_LEFT].y = -je.value; break;
+				case 2:	state->trigger[TRIGGER_LEFT].value = (je.value + 32768) >> 8; break;
+				case 3:	state->stick[STICK_RIGHT].x = je.value; break;
+				case 4:	state->stick[STICK_RIGHT].y = -je.value; break;
+				case 5:	state->trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
+				case 6:
+					if (je.value == -32767) {
+						state->bCurrent |= BUTTON_DPAD_LEFT;
+						state->bCurrent &= ~BUTTON_DPAD_RIGHT;
+					} else if (je.value == 32767) {
+						state->bCurrent |= BUTTON_DPAD_RIGHT;
+						state->bCurrent &= ~BUTTON_DPAD_LEFT;
+					} else {
+						state->bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
+					}
+					break;
+				case 7:
+					if (je.value == -32767) {
+						state->bCurrent |= BUTTON_DPAD_UP;
+						state->bCurrent &= ~BUTTON_DPAD_DOWN;
+					} else if (je.value == 32767) {
+						state->bCurrent |= BUTTON_DPAD_DOWN;
+						state->bCurrent &= ~BUTTON_DPAD_UP;
+					} else {
+						state->bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
+					}
+					break;
+				default: break;
+				}
+
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+static void GamepadPlatformShutdown(void) {
 	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		if (STATE[i].fd != -1) {
 			close(STATE[i].fd);
 		}
 	}
-#endif
 }
 
-/* Update stick info */
-static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
-	// determine magnitude of stick
-	axis->length = sqrtf((float)(axis->x*axis->x) + (float)(axis->y*axis->y));
+#endif /* end of platform implementations */
 
-	if (axis->length > deadzone) {
-		// clamp length to maximum value
-		if (axis->length > 32767.0f) {
-			axis->length = 32767.0f;
-		}
+void GamepadInit() {
+	/* zero out state data */
+	memset(STATE, 0, sizeof(STATE));
 
-		// normalized X and Y values
-		axis->nx = axis->x / axis->length;
-		axis->ny = axis->y / axis->length;
-
-		// adjust length for deadzone and find normalized length
-		axis->length -= deadzone;
-		axis->length /= (32767.0f - deadzone);
-
-		// find angle of stick in radians
-		axis->angle = atan2f((float)axis->y, (float)axis->x);
-	} else {
-		axis->x = axis->y = 0;
-		axis->nx = axis->ny = 0.0f;
-		axis->length = axis->angle = 0.0f;
-	}
+	/* perform platform initialization */
+	GamepadPlatformInit();
 }
 
-/* Update trigger info */
-static void GamepadUpdateTrigger(GAMEPAD_TRIGINFO* trig) {
-	if (trig->value > GAMEPAD_DEADZONE_TRIGGER) {
-		trig->length = ((trig->value - GAMEPAD_DEADZONE_TRIGGER) / (255.0f - GAMEPAD_DEADZONE_TRIGGER));
-	} else {
-		trig->value = 0;
-		trig->length = 0.0f;
-	}
+void GamepadShutdown(void) {
+	GamepadPlatformShutdown();
 }
 
-void GamepadUpdate() {
+void GamepadUpdate(void) {
 	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
+		/* store previous button state */
 		STATE[i].bLast = STATE[i].bCurrent;
-#if defined(WIN32)
-		XINPUT_STATE xs;
-		if(XInputGetState(i, &xs) == 0) {
-			STATE[i].flags |= FLAG_CONNECTED;
 
-			/* update state */
-			STATE[i].bCurrent = xs.Gamepad.wButtons;
-			STATE[i].trigger[TRIGGER_LEFT].value = xs.Gamepad.bLeftTrigger;
-			STATE[i].trigger[TRIGGER_RIGHT].value = xs.Gamepad.bRightTrigger;
-			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
-			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
-			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
-			STATE[i].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
-		} else {
-			STATE[i].flags ^= FLAG_CONNECTED;
-		}
-#else
-		if (STATE[i].fd != -1) {
-			struct js_event je;
-			while (read(STATE[i].fd, &je, sizeof(je)) > 0) {
-				int button;
-				switch (je.type) {
-				case JS_EVENT_BUTTON:
-					/* determine which button the event is for */
-					switch (je.number) {
-					case 0: button = BUTTON_A; break;
-					case 1: button = BUTTON_B; break;
-					case 2: button = BUTTON_X; break;
-					case 3: button = BUTTON_Y; break;
-					case 4: button = BUTTON_LEFT_SHOULDER; break;
-					case 5: button = BUTTON_RIGHT_SHOULDER; break;
-					case 6: button = BUTTON_BACK; break;
-					case 7: button = BUTTON_START; break;
-					case 8: button = 0; break; /* XBOX button  */
-					case 9: button = BUTTON_LEFT_THUMB; break;
-					case 10: button = BUTTON_RIGHT_THUMB; break;
-					default: button = 0; break;
-					}
-
-					/* set or unset the button */
-					if (je.value) {
-						STATE[i].bCurrent |= button;
-					} else {
-						STATE[i].bCurrent ^= button;
-					}
-						
-					break;
-				case JS_EVENT_AXIS:
-					/* normalize and store the axis */
-					switch (je.number) {
-					case 0:	STATE[i].stick[STICK_LEFT].x = je.value; break;
-					case 1:	STATE[i].stick[STICK_LEFT].y = -je.value; break;
-					case 2:	STATE[i].trigger[TRIGGER_LEFT].value = (je.value + 32768) >> 8; break;
-					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value; break;
-					case 4:	STATE[i].stick[STICK_RIGHT].y = -je.value; break;
-					case 5:	STATE[i].trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
-					case 6:
-						if (je.value == -32767) {
-							STATE[i].bCurrent |= BUTTON_DPAD_LEFT;
-							STATE[i].bCurrent &= ~BUTTON_DPAD_RIGHT;
-						} else if (je.value == 32767) {
-							STATE[i].bCurrent |= BUTTON_DPAD_RIGHT;
-							STATE[i].bCurrent &= ~BUTTON_DPAD_LEFT;
-						} else {
-							STATE[i].bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
-						}
-						break;
-					case 7:
-						if (je.value == -32767) {
-							STATE[i].bCurrent |= BUTTON_DPAD_UP;
-							STATE[i].bCurrent &= ~BUTTON_DPAD_DOWN;
-						} else if (je.value == 32767) {
-							STATE[i].bCurrent |= BUTTON_DPAD_DOWN;
-							STATE[i].bCurrent &= ~BUTTON_DPAD_UP;
-						} else {
-							STATE[i].bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
-						}
-						break;
-					default: break;
-					}
-
-					break;
-				default:
-					break;
-				}
-			}
-		}
-#endif
+		/* per-platform update routines */
+		GamepadPlatformUpdate(&STATE[i]);
 
 		/* calculate refined stick and trigger values */
 		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
@@ -297,5 +289,43 @@ int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR
 		return STATE[device].stick[stick].angle < PI_1_4 && STATE[device].stick[stick].angle >= -PI_1_4;
 	default:
 		return GAMEPAD_FALSE;
+	}
+}
+
+/* Update stick info */
+static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
+	// determine magnitude of stick
+	axis->length = sqrtf((float)(axis->x*axis->x) + (float)(axis->y*axis->y));
+
+	if (axis->length > deadzone) {
+		// clamp length to maximum value
+		if (axis->length > 32767.0f) {
+			axis->length = 32767.0f;
+		}
+
+		// normalized X and Y values
+		axis->nx = axis->x / axis->length;
+		axis->ny = axis->y / axis->length;
+
+		// adjust length for deadzone and find normalized length
+		axis->length -= deadzone;
+		axis->length /= (32767.0f - deadzone);
+
+		// find angle of stick in radians
+		axis->angle = atan2f((float)axis->y, (float)axis->x);
+	} else {
+		axis->x = axis->y = 0;
+		axis->nx = axis->ny = 0.0f;
+		axis->length = axis->angle = 0.0f;
+	}
+}
+
+/* Update trigger info */
+static void GamepadUpdateTrigger(GAMEPAD_TRIGINFO* trig) {
+	if (trig->value > GAMEPAD_DEADZONE_TRIGGER) {
+		trig->length = ((trig->value - GAMEPAD_DEADZONE_TRIGGER) / (255.0f - GAMEPAD_DEADZONE_TRIGGER));
+	} else {
+		trig->value = 0;
+		trig->length = 0.0f;
 	}
 }
