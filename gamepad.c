@@ -61,12 +61,16 @@ struct GamepadState {
 /* State of the four gamepads */
 static struct GamepadState STATE[4];
 
+#if defined(WIN32)
+void GamepadInit() {
+	memset(STATE, 0, sizeof(STATE));
+}
+#else
 void GamepadInit() {
 	int i;
 
 	memset(STATE, 0, sizeof(STATE));
 
-#if !defined(WIN32)
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		char dev[128];
 		snprintf(dev, sizeof(dev), "/dev/input/js%d", i);
@@ -75,12 +79,12 @@ void GamepadInit() {
 			STATE[i].flags |= FLAG_CONNECTED;
 		}
 	}
-#endif
 }
+#endif
 
 void GamepadShutdown() {
-	int i;
 #if !defined(WIN32)
+	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		if (STATE[i].fd != -1) {
 			close(STATE[i].fd);
@@ -92,7 +96,7 @@ void GamepadShutdown() {
 /* Update stick info */
 static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
 	// determine magnitude of stick
-	axis->length = sqrtf(axis->x*axis->x + axis->y*axis->y);
+	axis->length = sqrtf((float)(axis->x*axis->x) + (float)(axis->y*axis->y));
 
 	if (axis->length > deadzone) {
 		// clamp length to maximum value
@@ -109,7 +113,7 @@ static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
 		axis->length /= (32767.0f - deadzone);
 
 		// find angle of stick in radians
-		axis->angle = atan2f(axis->y, axis->x);
+		axis->angle = atan2f((float)axis->y, (float)axis->x);
 	} else {
 		axis->x = axis->y = 0;
 		axis->nx = axis->ny = 0.0f;
