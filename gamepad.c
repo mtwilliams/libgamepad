@@ -42,7 +42,7 @@ struct GamepadAxis {
 
 /* Structure for state of a particular gamepad */
 struct GamepadState {
-	GamepadAxis stick[STICK_COUNT];
+	struct GamepadAxis stick[STICK_COUNT];
 	float trigger[TRIGGER_COUNT];
 	int bLast, bCurrent, flags;
 #if !defined(WIN32)
@@ -51,13 +51,15 @@ struct GamepadState {
 };
 
 /* State of the four gamepads */
-static GamepadState STATE[4];
+static struct GamepadState STATE[4];
 
 void GamepadInit() {
+	int i;
+
 	memset(STATE, 0, sizeof(STATE));
 
 #if !defined(WIN32)
-	for (int i = 0; i != GAMEPAD_COUNT; ++i) {
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		char dev[128];
 		snprintf(dev, sizeof(dev), "/dev/input/js%d", i);
 		STATE[i].fd = open(dev, O_RDONLY|O_NONBLOCK);
@@ -69,8 +71,9 @@ void GamepadInit() {
 }
 
 void GamepadShutdown() {
+	int i;
 #if !defined(WIN32)
-	for (int i = 0; i != GAMEPAD_COUNT; ++i) {
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		if (STATE[i].fd != -1) {
 			close(STATE[i].fd);
 		}
@@ -79,7 +82,8 @@ void GamepadShutdown() {
 }
 
 void GamepadUpdate() {
-	for (int i = 0; i != GAMEPAD_COUNT; ++i) {
+	int i;
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		STATE[i].bLast = STATE[i].bCurrent;
 #if defined(WIN32)
 		XINPUT_STATE xs;
@@ -137,6 +141,28 @@ void GamepadUpdate() {
 					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value / JOY_MAX; break;
 					case 4:	STATE[i].stick[STICK_RIGHT].y = je.value / JOY_MAX; break;
 					case 5:	STATE[i].trigger[TRIGGER_RIGHT] = je.value / JOY_MAX; break;
+					case 6:
+						if (je.value == -32767) {
+							STATE[i].bCurrent |= BUTTON_DPAD_LEFT;
+							STATE[i].bCurrent &= ~BUTTON_DPAD_RIGHT;
+						} else if (je.value == 32767) {
+							STATE[i].bCurrent |= BUTTON_DPAD_RIGHT;
+							STATE[i].bCurrent &= ~BUTTON_DPAD_LEFT;
+						} else {
+							STATE[i].bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
+						}
+						break;
+					case 7:
+						if (je.value == -32767) {
+							STATE[i].bCurrent |= BUTTON_DPAD_UP;
+							STATE[i].bCurrent &= ~BUTTON_DPAD_DOWN;
+						} else if (je.value == 32767) {
+							STATE[i].bCurrent |= BUTTON_DPAD_DOWN;
+							STATE[i].bCurrent &= ~BUTTON_DPAD_UP;
+						} else {
+							STATE[i].bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
+						}
+						break;
 					default: break;
 					}
 
@@ -161,20 +187,20 @@ void GamepadUpdate() {
 	}
 }
 
-bool GamepadIsConnected(GAMEPAD_DEVICE device) {
+int GamepadIsConnected(GAMEPAD_DEVICE device) {
 	return STATE[device].flags & FLAG_CONNECTED;
 }
 
-bool GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+int GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
 	return (STATE[device].bCurrent & button) != 0;
 }
 
-bool GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+int GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
 	return (STATE[device].bLast & button) == 0 &&
 			(STATE[device].bCurrent & button) != 0;
 }
 
-bool GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+int GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
 	return (STATE[device].bCurrent & button) == 0 &&
 			(STATE[device].bLast & button) != 0;
 }
@@ -196,9 +222,9 @@ float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 	return STATE[device].stick[stick].angle;
 }
 
-bool GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir) {
+int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir) {
 	if (STATE[device].stick[stick].value < GAMEPAD_STICK_LIGHT) {
-		return false;
+		return GAMEPAD_FALSE;
 	}
 
 	switch (stickdir) {
@@ -211,6 +237,6 @@ bool GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDI
 	case STICKDIR_RIGHT:
 		return STATE[device].stick[stick].angle < PI_1_4 && STATE[device].stick[stick].angle >= -PI_1_4;
 	default:
-		return false;
+		return GAMEPAD_FALSE;
 	}
 }
