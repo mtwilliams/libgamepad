@@ -56,7 +56,7 @@ static GAMEPAD_STATE STATE[4];
 
 /* Prototypes */
 static void GamepadPlatformInit		(void);
-static void GamepadPlatformUpdate	(GAMEPAD_STATE* state);
+static void GamepadPlatformUpdate	(GAMEPAD_DEVICE gamepad);
 static void GamepadPlatformShutdown	(void);
 
 static void GamepadUpdateStick		(GAMEPAD_AXIS* axis, float deadzone);
@@ -75,21 +75,21 @@ static void GamepadPlatformInit(void) {
 	/* no Win32 initialization required */
 }
 
-static void GamepadPlatformUpdate(GAMEPAD_STATE* state) {
+static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
 	XINPUT_STATE xs;
-	if (XInputGetState(i, &xs) == 0) {
-		state->flags |= FLAG_CONNECTED;
+	if (XInputGetState(gamepad, &xs) == 0) {
+		STATE[gamepad].flags |= FLAG_CONNECTED;
 
 		/* update state */
-		state->bCurrent = xs.Gamepad.wButtons;
-		state->trigger[TRIGGER_LEFT].value = xs.Gamepad.bLeftTrigger;
-		state->trigger[TRIGGER_RIGHT].value = xs.Gamepad.bRightTrigger;
-		state->stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
-		state->stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
-		state->stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
-		state->stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
+		STATE[gamepad].bCurrent = xs.Gamepad.wButtons;
+		STATE[gamepad].trigger[TRIGGER_LEFT].value = xs.Gamepad.bLeftTrigger;
+		STATE[gamepad].trigger[TRIGGER_RIGHT].value = xs.Gamepad.bRightTrigger;
+		STATE[gamepad].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
+		STATE[gamepad].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
+		STATE[gamepad].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
+		STATE[gamepad].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
 	} else {
-		state->flags &= ~FLAG_CONNECTED;
+		STATE[gamepad].flags &= ~FLAG_CONNECTED;
 	}
 }
 
@@ -111,10 +111,10 @@ static void GamepadPlatformInit(void) {
 	}
 }
 
-static void GamepadPlatformUpdate(GAMEPAD_STATE* state) {
-	if (state->fd != -1) {
+static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
+	if (STATE[gamepad].fd != -1) {
 		struct js_event je;
-		while (read(state->fd, &je, sizeof(je)) > 0) {
+		while (read(STATE[gamepad].fd, &je, sizeof(je)) > 0) {
 			int button;
 			switch (je.type) {
 			case JS_EVENT_BUTTON:
@@ -136,41 +136,41 @@ static void GamepadPlatformUpdate(GAMEPAD_STATE* state) {
 
 				/* set or unset the button */
 				if (je.value) {
-					state->bCurrent |= button;
+					STATE[gamepad].bCurrent |= button;
 				} else {
-					state->bCurrent ^= button;
+					STATE[gamepad].bCurrent ^= button;
 				}
 					
 				break;
 			case JS_EVENT_AXIS:
 				/* normalize and store the axis */
 				switch (je.number) {
-				case 0:	state->stick[STICK_LEFT].x = je.value; break;
-				case 1:	state->stick[STICK_LEFT].y = -je.value; break;
-				case 2:	state->trigger[TRIGGER_LEFT].value = (je.value + 32768) >> 8; break;
-				case 3:	state->stick[STICK_RIGHT].x = je.value; break;
-				case 4:	state->stick[STICK_RIGHT].y = -je.value; break;
-				case 5:	state->trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
+				case 0:	STATE[gamepad].stick[STICK_LEFT].x = je.value; break;
+				case 1:	STATE[gamepad].stick[STICK_LEFT].y = -je.value; break;
+				case 2:	STATE[gamepad].trigger[TRIGGER_LEFT].value = (je.value + 32768) >> 8; break;
+				case 3:	STATE[gamepad].stick[STICK_RIGHT].x = je.value; break;
+				case 4:	STATE[gamepad].stick[STICK_RIGHT].y = -je.value; break;
+				case 5:	STATE[gamepad].trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
 				case 6:
 					if (je.value == -32767) {
-						state->bCurrent |= BUTTON_DPAD_LEFT;
-						state->bCurrent &= ~BUTTON_DPAD_RIGHT;
+						STATE[gamepad].bCurrent |= BUTTON_DPAD_LEFT;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_RIGHT;
 					} else if (je.value == 32767) {
-						state->bCurrent |= BUTTON_DPAD_RIGHT;
-						state->bCurrent &= ~BUTTON_DPAD_LEFT;
+						STATE[gamepad].bCurrent |= BUTTON_DPAD_RIGHT;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_LEFT;
 					} else {
-						state->bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
 					}
 					break;
 				case 7:
 					if (je.value == -32767) {
-						state->bCurrent |= BUTTON_DPAD_UP;
-						state->bCurrent &= ~BUTTON_DPAD_DOWN;
+						STATE[gamepad].bCurrent |= BUTTON_DPAD_UP;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_DOWN;
 					} else if (je.value == 32767) {
-						state->bCurrent |= BUTTON_DPAD_DOWN;
-						state->bCurrent &= ~BUTTON_DPAD_UP;
+						STATE[gamepad].bCurrent |= BUTTON_DPAD_DOWN;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_UP;
 					} else {
-						state->bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
+						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
 					}
 					break;
 				default: break;
@@ -214,7 +214,7 @@ void GamepadUpdate(void) {
 		STATE[i].bLast = STATE[i].bCurrent;
 
 		/* per-platform update routines */
-		GamepadPlatformUpdate(&STATE[i]);
+		GamepadPlatformUpdate((GAMEPAD_DEVICE)i);
 
 		/* calculate refined stick and trigger values */
 		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
