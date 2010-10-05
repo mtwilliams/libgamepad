@@ -12,7 +12,6 @@ typedef enum GAMEPAD_BUTTON GAMEPAD_BUTTON;
 typedef enum GAMEPAD_TRIGGER GAMEPAD_TRIGGER;
 typedef enum GAMEPAD_STICK GAMEPAD_STICK;
 typedef enum GAMEPAD_STICKDIR GAMEPAD_STICKDIR;
-typedef struct GAMEPAD_AXIS GAMEPAD_AXIS;
 
 enum GAMEPAD_DEVICE {
 	GAMEPAD_0,
@@ -61,14 +60,6 @@ enum GAMEPAD_STICKDIR {
 	STICKDIR_RIGHT
 };
 
-struct GAMEPAD_AXIS {
-	float x, y;
-	float nx, ny;
-	float length;
-	float nlength;
-	float angle;
-};
-
 #define GAMEPAD_TRUE			1
 #define GAMEPAD_FALSE			0
 
@@ -81,11 +72,17 @@ extern void		GamepadShutdown();
 extern void		GamepadUpdate();
 
 extern int		GamepadIsConnected		(GAMEPAD_DEVICE device);
+
 extern int		GamepadButtonDown		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 extern int		GamepadButtonTriggered	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 extern int		GamepadButtonReleased	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
-extern float	GamepadTriggerValue		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
-extern void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
+
+extern float	GamepadTrigger			(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+
+extern void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
+extern void		GamepadStickNormXY		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
+
+extern float	GamepadStickLength		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
 extern float	GamepadStickAngle		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
-extern float	GamepadStickValue		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+
 extern int		GamepadStickDir			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir);

@@ -23,6 +23,15 @@
 
 #include "gamepad.h"
 
+/* Axis information */
+typedef struct GAMEPAD_AXIS GAMEPAD_AXIS;
+struct GAMEPAD_AXIS {
+	int x, y;
+	float nx, ny;
+	float length;
+	float angle;
+};
+
 /* Note whether a gamepad is currently connected */
 #define FLAG_CONNECTED (1<<0)
 
@@ -75,38 +84,29 @@ void GamepadShutdown() {
 
 /* Update stick info */
 static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
+	// determine magnitude of stick
 	axis->length = sqrtf(axis->x*axis->x + axis->y*axis->y);
+
 	if (axis->length > deadzone) {
+		// clamp length to maximum value
 		if (axis->length > 32767.0f) {
 			axis->length = 32767.0f;
 		}
 
+		// normalized X and Y values
+		axis->nx = axis->x / axis->length;
+		axis->ny = axis->y / axis->length;
+
+		// adjust length for deadzone and find normalized length
 		axis->length -= deadzone;
-		axis->nlength = axis->length / (32767.0f - deadzone);
+		axis->length /= (32767.0f - deadzone);
 
-		if (axis->x < 0) {
-			axis->nx = (axis->x + deadzone) / axis->length;
-		} else {
-			axis->nx = (axis->x - deadzone) / axis->length;
-		}
-		if (axis->y < 0) {
-			axis->ny = (axis->y + deadzone) / axis->length;
-		} else {
-			axis->ny = (axis->y - deadzone) / axis->length;
-		}
-
+		// find angle of stick in radians
 		axis->angle = atan2f(axis->y, axis->x);
 	} else {
-		axis->x = 0.0f;
-		axis->y = 0.0f;
-
-		axis->length = 0.0f;
-		axis->nlength = 0.0f;
-
-		axis->nx = 0.0f;
-		axis->ny = 0.0f;
-
-		axis->angle = 0.0f;
+		axis->x = axis->y = 0.0f;
+		axis->nx = axis->ny = 0.0f;
+		axis->length = axis->angle = 0.0f;
 	}
 }
 
@@ -229,17 +229,22 @@ int GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
 			(STATE[device].bLast & button) != 0;
 }
 
-float GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+float GamepadTrigger(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
 	return STATE[device].trigger[trigger];
 }
 
-void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float *outX, float *outY) {
-	*outX = STATE[device].stick[stick].nx;
-	*outY = STATE[device].stick[stick].ny;
+void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int *outX, int *outY) {
+	*outX = STATE[device].stick[stick].x;
+	*outY = STATE[device].stick[stick].y;
 }
 
-float GamepadStickValue(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
-	return STATE[device].stick[stick].nlength;
+float GamepadStickLength(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
+	return STATE[device].stick[stick].length;
+}
+
+void GamepadStickNormXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float *outX, float *outY) {
+	*outX = STATE[device].stick[stick].nx;
+	*outY = STATE[device].stick[stick].ny;
 }
 
 float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
