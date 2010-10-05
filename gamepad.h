@@ -12,6 +12,7 @@ typedef enum GAMEPAD_BUTTON GAMEPAD_BUTTON;
 typedef enum GAMEPAD_TRIGGER GAMEPAD_TRIGGER;
 typedef enum GAMEPAD_STICK GAMEPAD_STICK;
 typedef enum GAMEPAD_STICKDIR GAMEPAD_STICKDIR;
+typedef struct GAMEPAD_AXIS GAMEPAD_AXIS;
 
 enum GAMEPAD_DEVICE {
 	GAMEPAD_0,
@@ -60,12 +61,20 @@ enum GAMEPAD_STICKDIR {
 	STICKDIR_RIGHT
 };
 
-#define GAMEPAD_STICK_LIGHT		0.35f
-#define GAMEPAD_STICK_MEDIUM	0.6f
-#define GAMEPAD_STICK_HEAVY		0.85f
+struct GAMEPAD_AXIS {
+	float x, y;
+	float nx, ny;
+	float length;
+	float nlength;
+	float angle;
+};
 
 #define GAMEPAD_TRUE			1
 #define GAMEPAD_FALSE			0
+
+#define GAMEPAD_DEADZONE_LEFT_STICK		7849
+#define	GAMEPAD_DEADZONE_RIGHT_STICK	8689	
+#define GAMEPAD_DEADZONE_TRIGGER		30
 
 extern void		GamepadInit();
 extern void		GamepadShutdown();

@@ -32,17 +32,9 @@
 #define PI_3_4	2.35619449019234f
 #define PI		3.14159265358979f
 
-/* Max value for sticks/triggers */
-#define STICK_MAX	32767.0f
-
-/* Structure for gamepad axis */
-struct GamepadAxis {
-	float x, y, angle, value;
-};
-
 /* Structure for state of a particular gamepad */
 struct GamepadState {
-	struct GamepadAxis stick[STICK_COUNT];
+	GAMEPAD_AXIS stick[STICK_COUNT];
 	float trigger[TRIGGER_COUNT];
 	int bLast, bCurrent, flags;
 #if !defined(WIN32)
@@ -81,6 +73,43 @@ void GamepadShutdown() {
 #endif
 }
 
+/* Update stick info */
+static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
+	axis->length = sqrtf(axis->x*axis->x + axis->y*axis->y);
+	if (axis->length > deadzone) {
+		if (axis->length > 32767.0f) {
+			axis->length = 32767.0f;
+		}
+
+		axis->length -= deadzone;
+		axis->nlength = axis->length / (32767.0f - deadzone);
+
+		if (axis->x < 0) {
+			axis->nx = (axis->x + deadzone) / axis->length;
+		} else {
+			axis->nx = (axis->x - deadzone) / axis->length;
+		}
+		if (axis->y < 0) {
+			axis->ny = (axis->y + deadzone) / axis->length;
+		} else {
+			axis->ny = (axis->y - deadzone) / axis->length;
+		}
+
+		axis->angle = atan2f(axis->y, axis->x);
+	} else {
+		axis->x = 0.0f;
+		axis->y = 0.0f;
+
+		axis->length = 0.0f;
+		axis->nlength = 0.0f;
+
+		axis->nx = 0.0f;
+		axis->ny = 0.0f;
+
+		axis->angle = 0.0f;
+	}
+}
+
 void GamepadUpdate() {
 	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
@@ -90,14 +119,14 @@ void GamepadUpdate() {
 		if(XInputGetState(i, &xs) == 0) {
 			STATE[i].flags |= FLAG_CONNECTED;
 
-			// update state
+			/* update state */
 			STATE[i].bCurrent = xs.Gamepad.wButtons;
 			STATE[i].trigger[TRIGGER_LEFT] = xs.Gamepad.bLeftTrigger / 255.f;
 			STATE[i].trigger[TRIGGER_RIGHT] = xs.Gamepad.bRightTrigger / 255.f;
-			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX / STICK_MAX;
-			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY / STICK_MAX;
-			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX / STICK_MAX;
-			STATE[i].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY / STICK_MAX;
+			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
+			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
+			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
+			STATE[i].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
 		} else {
 			STATE[i].flags ^= FLAG_CONNECTED;
 		}
@@ -108,7 +137,7 @@ void GamepadUpdate() {
 				int button;
 				switch (je.type) {
 				case JS_EVENT_BUTTON:
-					// determine which button the event is for
+					/* determine which button the event is for */
 					switch (je.number) {
 					case 0: button = BUTTON_A; break;
 					case 1: button = BUTTON_B; break;
@@ -118,13 +147,13 @@ void GamepadUpdate() {
 					case 5: button = BUTTON_RIGHT_SHOULDER; break;
 					case 6: button = BUTTON_BACK; break;
 					case 7: button = BUTTON_START; break;
-					case 8: button = 0; break; // XBOX button 
+					case 8: button = 0; break; /* XBOX button  */
 					case 9: button = BUTTON_LEFT_THUMB; break;
 					case 10: button = BUTTON_RIGHT_THUMB; break;
 					default: button = 0; break;
 					}
 
-					// set or unset the button
+					/* set or unset the button */
 					if (je.value) {
 						STATE[i].bCurrent |= button;
 					} else {
@@ -133,13 +162,13 @@ void GamepadUpdate() {
 						
 					break;
 				case JS_EVENT_AXIS:
-					// normalize and store the axis
+					/* normalize and store the axis */
 					switch (je.number) {
-					case 0:	STATE[i].stick[STICK_LEFT].x = je.value / STICK_MAX; break;
-					case 1:	STATE[i].stick[STICK_LEFT].y = je.value / STICK_MAX; break;
+					case 0:	STATE[i].stick[STICK_LEFT].x = je.value; break;
+					case 1:	STATE[i].stick[STICK_LEFT].y = -je.value; break;
 					case 2:	STATE[i].trigger[TRIGGER_LEFT] = (je.value + 32767) / 65534.0f; break;
-					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value / STICK_MAX; break;
-					case 4:	STATE[i].stick[STICK_RIGHT].y = je.value / STICK_MAX; break;
+					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value; break;
+					case 4:	STATE[i].stick[STICK_RIGHT].y = -je.value; break;
 					case 5:	STATE[i].trigger[TRIGGER_RIGHT] = (je.value + 32767) / 65534.0f; break;
 					case 6:
 						if (je.value == -32767) {
@@ -174,15 +203,10 @@ void GamepadUpdate() {
 		}
 #endif
 
-		// update the stick angles and magnitudes
+		/* update the stick angles and magnitudes */
 		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
-			// left stick
-			STATE[i].stick[STICK_LEFT].value = sqrtf(STATE[i].stick[STICK_LEFT].x*STATE[i].stick[STICK_LEFT].x + STATE[i].stick[STICK_LEFT].y*STATE[i].stick[STICK_LEFT].y);
-			STATE[i].stick[STICK_LEFT].angle = atan2f(STATE[i].stick[STICK_LEFT].y, STATE[i].stick[STICK_LEFT].x);
-
-			// right stick
-			STATE[i].stick[STICK_RIGHT].value = sqrtf(STATE[i].stick[STICK_RIGHT].x*STATE[i].stick[STICK_RIGHT].x + STATE[i].stick[STICK_RIGHT].y*STATE[i].stick[STICK_RIGHT].y);
-			STATE[i].stick[STICK_RIGHT].angle = atan2f(STATE[i].stick[STICK_RIGHT].y, STATE[i].stick[STICK_RIGHT].x);
+			GamepadUpdateStick(&STATE[i].stick[STICK_LEFT], GAMEPAD_DEADZONE_LEFT_STICK);
+			GamepadUpdateStick(&STATE[i].stick[STICK_RIGHT], GAMEPAD_DEADZONE_RIGHT_STICK);
 		}
 	}
 }
@@ -210,12 +234,12 @@ float GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
 }
 
 void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float *outX, float *outY) {
-	*outX = STATE[device].stick[stick].x;
-	*outY = STATE[device].stick[stick].y;
+	*outX = STATE[device].stick[stick].nx;
+	*outY = STATE[device].stick[stick].ny;
 }
 
 float GamepadStickValue(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
-	return STATE[device].stick[stick].value;
+	return STATE[device].stick[stick].nlength;
 }
 
 float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
@@ -223,10 +247,6 @@ float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 }
 
 int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir) {
-	if (STATE[device].stick[stick].value < GAMEPAD_STICK_LIGHT) {
-		return GAMEPAD_FALSE;
-	}
-
 	switch (stickdir) {
 	case STICKDIR_UP:
 		return STATE[device].stick[stick].angle >= PI_1_4 && STATE[device].stick[stick].angle < PI_3_4;
