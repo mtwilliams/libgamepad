@@ -67,9 +67,9 @@ enum GAMEPAD_STICKDIR {
 #define	GAMEPAD_DEADZONE_RIGHT_STICK	8689	
 #define GAMEPAD_DEADZONE_TRIGGER		30
 
-extern void		GamepadInit();
-extern void		GamepadShutdown();
-extern void		GamepadUpdate();
+extern void		GamepadInit				(void);
+extern void		GamepadShutdown			(void);
+extern void		GamepadUpdate			(void);
 
 extern int		GamepadIsConnected		(GAMEPAD_DEVICE device);
 
