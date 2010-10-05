@@ -33,7 +33,7 @@
 #define PI		3.14159265358979f
 
 /* Max value for sticks/triggers */
-#define JOY_MAX 32767.0f
+#define STICK_MAX	32767.0f
 
 /* Structure for gamepad axis */
 struct GamepadAxis {
@@ -94,10 +94,10 @@ void GamepadUpdate() {
 			STATE[i].bCurrent = xs.Gamepad.wButtons;
 			STATE[i].trigger[TRIGGER_LEFT] = xs.Gamepad.bLeftTrigger / 255.f;
 			STATE[i].trigger[TRIGGER_RIGHT] = xs.Gamepad.bRightTrigger / 255.f;
-			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX / JOY_MAX;
-			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY / JOY_MAX;
-			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX / JOY_MAX;
-			STATE[i].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY / JOY_MAX;
+			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX / STICK_MAX;
+			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY / STICK_MAX;
+			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX / STICK_MAX;
+			STATE[i].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY / STICK_MAX;
 		} else {
 			STATE[i].flags ^= FLAG_CONNECTED;
 		}
@@ -135,12 +135,12 @@ void GamepadUpdate() {
 				case JS_EVENT_AXIS:
 					// normalize and store the axis
 					switch (je.number) {
-					case 0:	STATE[i].stick[STICK_LEFT].x = je.value / JOY_MAX; break;
-					case 1:	STATE[i].stick[STICK_LEFT].y = je.value / JOY_MAX; break;
-					case 2:	STATE[i].trigger[TRIGGER_LEFT] = je.value / JOY_MAX; break;
-					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value / JOY_MAX; break;
-					case 4:	STATE[i].stick[STICK_RIGHT].y = je.value / JOY_MAX; break;
-					case 5:	STATE[i].trigger[TRIGGER_RIGHT] = je.value / JOY_MAX; break;
+					case 0:	STATE[i].stick[STICK_LEFT].x = je.value / STICK_MAX; break;
+					case 1:	STATE[i].stick[STICK_LEFT].y = je.value / STICK_MAX; break;
+					case 2:	STATE[i].trigger[TRIGGER_LEFT] = (je.value + 32767) / 65534.0f; break;
+					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value / STICK_MAX; break;
+					case 4:	STATE[i].stick[STICK_RIGHT].y = je.value / STICK_MAX; break;
+					case 5:	STATE[i].trigger[TRIGGER_RIGHT] = (je.value + 32767) / 65534.0f; break;
 					case 6:
 						if (je.value == -32767) {
 							STATE[i].bCurrent |= BUTTON_DPAD_LEFT;
