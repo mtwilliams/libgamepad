@@ -32,6 +32,13 @@ struct GAMEPAD_AXIS {
 	float angle;
 };
 
+/* Trigger value information */
+typedef struct GAMEPAD_TRIGINFO GAMEPAD_TRIGINFO;
+struct GAMEPAD_TRIGINFO {
+	int value;
+	float length;
+};
+
 /* Note whether a gamepad is currently connected */
 #define FLAG_CONNECTED (1<<0)
 
@@ -44,7 +51,7 @@ struct GAMEPAD_AXIS {
 /* Structure for state of a particular gamepad */
 struct GamepadState {
 	GAMEPAD_AXIS stick[STICK_COUNT];
-	float trigger[TRIGGER_COUNT];
+	GAMEPAD_TRIGINFO trigger[TRIGGER_COUNT];
 	int bLast, bCurrent, flags;
 #if !defined(WIN32)
 	int fd;
@@ -104,9 +111,19 @@ static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
 		// find angle of stick in radians
 		axis->angle = atan2f(axis->y, axis->x);
 	} else {
-		axis->x = axis->y = 0.0f;
+		axis->x = axis->y = 0;
 		axis->nx = axis->ny = 0.0f;
 		axis->length = axis->angle = 0.0f;
+	}
+}
+
+/* Update trigger info */
+static void GamepadUpdateTrigger(GAMEPAD_TRIGINFO* trig) {
+	if (trig->value > GAMEPAD_DEADZONE_TRIGGER) {
+		trig->length = ((trig->value - GAMEPAD_DEADZONE_TRIGGER) / (255.0f - GAMEPAD_DEADZONE_TRIGGER));
+	} else {
+		trig->value = 0;
+		trig->length = 0.0f;
 	}
 }
 
@@ -121,8 +138,8 @@ void GamepadUpdate() {
 
 			/* update state */
 			STATE[i].bCurrent = xs.Gamepad.wButtons;
-			STATE[i].trigger[TRIGGER_LEFT] = xs.Gamepad.bLeftTrigger / 255.f;
-			STATE[i].trigger[TRIGGER_RIGHT] = xs.Gamepad.bRightTrigger / 255.f;
+			STATE[i].trigger[TRIGGER_LEFT].value = xs.Gamepad.bLeftTrigger;
+			STATE[i].trigger[TRIGGER_RIGHT].value = xs.Gamepad.bRightTrigger;
 			STATE[i].stick[STICK_LEFT].x = xs.Gamepad.sThumbLX;
 			STATE[i].stick[STICK_LEFT].y = xs.Gamepad.sThumbLY;
 			STATE[i].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
@@ -166,10 +183,10 @@ void GamepadUpdate() {
 					switch (je.number) {
 					case 0:	STATE[i].stick[STICK_LEFT].x = je.value; break;
 					case 1:	STATE[i].stick[STICK_LEFT].y = -je.value; break;
-					case 2:	STATE[i].trigger[TRIGGER_LEFT] = (je.value + 32767) / 65534.0f; break;
+					case 2:	STATE[i].trigger[TRIGGER_LEFT].value = (je.value + 32768) >> 8; break;
 					case 3:	STATE[i].stick[STICK_RIGHT].x = je.value; break;
 					case 4:	STATE[i].stick[STICK_RIGHT].y = -je.value; break;
-					case 5:	STATE[i].trigger[TRIGGER_RIGHT] = (je.value + 32767) / 65534.0f; break;
+					case 5:	STATE[i].trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
 					case 6:
 						if (je.value == -32767) {
 							STATE[i].bCurrent |= BUTTON_DPAD_LEFT;
@@ -203,10 +220,13 @@ void GamepadUpdate() {
 		}
 #endif
 
-		/* update the stick angles and magnitudes */
+		/* calculate refined stick and trigger values */
 		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
 			GamepadUpdateStick(&STATE[i].stick[STICK_LEFT], GAMEPAD_DEADZONE_LEFT_STICK);
 			GamepadUpdateStick(&STATE[i].stick[STICK_RIGHT], GAMEPAD_DEADZONE_RIGHT_STICK);
+
+			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_LEFT]);
+			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_RIGHT]);
 		}
 	}
 }
@@ -229,8 +249,12 @@ int GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
 			(STATE[device].bLast & button) != 0;
 }
 
-float GamepadTrigger(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
-	return STATE[device].trigger[trigger];
+int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+	return STATE[device].trigger[trigger].value;
+}
+
+float GamepadTriggerLength(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+	return STATE[device].trigger[trigger].length;
 }
 
 void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int *outX, int *outY) {

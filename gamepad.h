@@ -77,7 +77,8 @@ extern int		GamepadButtonDown		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 extern int		GamepadButtonTriggered	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 extern int		GamepadButtonReleased	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 
-extern float	GamepadTrigger			(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+extern int		GamepadTriggerValue		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+extern float	GamepadTriggerLength	(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
 extern void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
 extern void		GamepadStickNormXY		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
