@@ -280,6 +280,12 @@ float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 }
 
 int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir) {
+	/* length must be non-zero */
+	if (STATE[device].stick[stick].length == 0.0f) {
+		return GAMEPAD_FALSE;
+	}
+
+	/* check directions */
 	switch (stickdir) {
 	case STICKDIR_UP:
 		return STATE[device].stick[stick].angle >= PI_1_4 && STATE[device].stick[stick].angle < PI_3_4;
