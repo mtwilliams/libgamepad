@@ -112,7 +112,7 @@ static void GamepadPlatformInit(void) {
 }
 
 static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
-	if (STATE[gamepad].fd != -1) {
+	if (STATE[gamepad].fd & FLAG_CONNECTED) {
 		struct js_event je;
 		while (read(STATE[gamepad].fd, &je, sizeof(je)) > 0) {
 			int button;
@@ -187,7 +187,7 @@ static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
 static void GamepadPlatformShutdown(void) {
 	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		if (STATE[i].fd != -1) {
+		if (STATE[i].flags & FLAG_CONNECTED) {
 			close(STATE[i].fd);
 		}
 	}
