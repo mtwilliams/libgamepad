@@ -11,7 +11,7 @@
 #include "gamepad.h"
 
 /* Platform-specific includes */
-#if defined(WIN32)
+#if defined(_WIN32)
 #	define WIN32_LEAN_AND_MEAN 1
 #	include "windows.h"
 #	include "xinput.h"
