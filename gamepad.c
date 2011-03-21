@@ -63,15 +63,11 @@ static GAMEPAD_STATE STATE[4];
 /* Note whether a gamepad is currently connected */
 #define FLAG_CONNECTED (1<<0)
 
-/* Prototypes */
-static void GamepadPlatformInit			(void);
-static void GamepadPlatformUpdate		(void);
-static void GamepadPlatformUpdateDevice	(GAMEPAD_DEVICE gamepad);
-static void GamepadPlatformSetRumble	(GAMEPAD_DEVICE gamepad, float left, float right);
-static void GamepadPlatformShutdown		(void);
-
-static void GamepadUpdateStick			(GAMEPAD_AXIS* axis, float deadzone);
-static void GamepadUpdateTrigger		(GAMEPAD_TRIGINFO* trig);
+/* Prototypes for utility functions */
+static void GamepadUpdateCommon		(void);
+static void GamepadUpdateDevice		(GAMEPAD_DEVICE gamepad);
+static void GamepadUpdateStick		(GAMEPAD_AXIS* axis, float deadzone);
+static void GamepadUpdateTrigger	(GAMEPAD_TRIGINFO* trig);
 
 /* Various values of PI */
 #define PI_1_4	0.78539816339744f
@@ -82,15 +78,15 @@ static void GamepadUpdateTrigger		(GAMEPAD_TRIGINFO* trig);
 /* Platform-specific implementation code */
 #if defined(_WIN32)
 
-static void GamepadPlatformInit(void) {
-	/* no Win32 initialization required */
+void GamepadInit(void) {
+	ZeroMemory(STATE, sizeof(STATE));
 }
 
-static void GamepadPlatformUpdate(void) {
-	/* no Win32 global update required */
+void GamepadUpdate(void) {
+	GamepadUpdateCommon();
 }
 
-static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
+static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	XINPUT_STATE xs;
 	if (XInputGetState(gamepad, &xs) == 0) {
 		STATE[gamepad].flags |= FLAG_CONNECTED;
@@ -108,11 +104,11 @@ static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	}
 }
 
-static void GamepadPlatformShutdown(void) {
+void GamepadShutdown(void) {
 	/* no Win32 shutdown required */
 }
 
-static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
+void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
 	XINPUT_VIBRATION vib;
 	ZeroMemory(&vib, sizeof(vib));
 	vib.wLeftMotorSpeed = left * 65535;
@@ -125,6 +121,9 @@ static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float r
 /* UDev handles */
 static struct udev* UDEV = NULL;
 static struct udev_monitor* MON = NULL;
+
+static void GamepadAddDevice(const char* devPath);
+static void GamepadRemoveDevice(const char* devPath);
 
 /* Helper to add a new device */
 static void GamepadAddDevice(const char* devPath) {
@@ -165,16 +164,18 @@ static void GamepadRemoveDevice(const char* devPath) {
 	}
 }
 
-static void GamepadPlatformInit(void) {
+void GamepadInit(void) {
 	struct udev_list_entry* devices;
 	struct udev_list_entry* item;
 	struct udev_enumerate* enu;
 	int i;
 
-	/* clear fd and effect to -1 rather than the default 0 */
+	/* initialize state */
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		STATE[i].fd = -1;
-		STATE[i].effect = -1;
+		memset(STATE[i].stick, 0, sizeof(STATE[i].stick));
+		memset(STATE[i].trigger, 0, sizeof(STATE[i].trigger));
+		STATE[i].bLast = STATE[i].bCurrent = STATE[i].flags = 0;
+		STATE[i].fd = STATE[i].effect = -1;
 	}
 
 	/* open the udev handle */
@@ -220,7 +221,7 @@ static void GamepadPlatformInit(void) {
 	udev_enumerate_unref(enu);
 }
 
-static void GamepadPlatformUpdate(void) {
+void GamepadUpdate(void) {
 	if (MON != NULL) {
 		fd_set r;
 		struct timeval tv;
@@ -257,9 +258,11 @@ static void GamepadPlatformUpdate(void) {
 			}
 		}
 	}
+
+	GamepadUpdateCommon();
 }
 
-static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
+static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	if (STATE[gamepad].flags & FLAG_CONNECTED) {
 		struct js_event je;
 		while (read(STATE[gamepad].fd, &je, sizeof(je)) > 0) {
@@ -332,7 +335,7 @@ static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	}
 }
 
-static void GamepadPlatformShutdown(void) {
+void GamepadShutdown(void) {
 	int i;
 
 	/* cleanup udev */
@@ -351,7 +354,7 @@ static void GamepadPlatformShutdown(void) {
 	}
 }
 
-static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
+void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
 	if (STATE[gamepad].fd != -1) {
 		struct input_event play;
 
@@ -400,46 +403,8 @@ static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float r
 
 #endif /* end of platform implementations */
 
-void GamepadInit() {
-	/* zero out state data */
-	memset(STATE, 0, sizeof(STATE));
-
-	/* perform platform initialization */
-	GamepadPlatformInit();
-}
-
-void GamepadShutdown(void) {
-	GamepadPlatformShutdown();
-}
-
-void GamepadUpdate(void) {
-	GamepadPlatformUpdate();
-
-	int i;
-	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		/* store previous button state */
-		STATE[i].bLast = STATE[i].bCurrent;
-
-		/* per-platform update routines */
-		GamepadPlatformUpdateDevice((GAMEPAD_DEVICE)i);
-
-		/* calculate refined stick and trigger values */
-		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
-			GamepadUpdateStick(&STATE[i].stick[STICK_LEFT], GAMEPAD_DEADZONE_LEFT_STICK);
-			GamepadUpdateStick(&STATE[i].stick[STICK_RIGHT], GAMEPAD_DEADZONE_RIGHT_STICK);
-
-			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_LEFT]);
-			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_RIGHT]);
-		}
-	}
-}
-
 int GamepadIsConnected(GAMEPAD_DEVICE device) {
 	return STATE[device].flags & FLAG_CONNECTED;
-}
-
-void GamepadSetRumble(GAMEPAD_DEVICE device, float left, float right) {
-	GamepadPlatformSetRumble(device, left, right);
 }
 
 int GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
@@ -500,6 +465,27 @@ int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR
 		return STATE[device].stick[stick].angle < PI_1_4 && STATE[device].stick[stick].angle >= -PI_1_4;
 	default:
 		return GAMEPAD_FALSE;
+	}
+}
+
+/* Update individual sticks */
+static void GamepadUpdateCommon(void) {
+	int i;
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
+		/* store previous button state */
+		STATE[i].bLast = STATE[i].bCurrent;
+
+		/* per-platform update routines */
+		GamepadUpdateDevice((GAMEPAD_DEVICE)i);
+
+		/* calculate refined stick and trigger values */
+		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
+			GamepadUpdateStick(&STATE[i].stick[STICK_LEFT], GAMEPAD_DEADZONE_LEFT_STICK);
+			GamepadUpdateStick(&STATE[i].stick[STICK_RIGHT], GAMEPAD_DEADZONE_RIGHT_STICK);
+
+			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_LEFT]);
+			GamepadUpdateTrigger(&STATE[i].trigger[TRIGGER_RIGHT]);
+		}
 	}
 }
 
