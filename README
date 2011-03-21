@@ -26,13 +26,9 @@ all OSes.  Primarily missing are:
 - XBOX button support (the big button in the middle of the controller)
 - LED control support
 - Battery status support
-- Force feedback
 
 Headsets are not supported in Linux via the Xbox controller, and the
 big XBOX button and LED control are not supported via XInput on Windows.
-
-Force feedback should be available on both, but simply is not implemented
-yet.
 
 OS X support has not yet been implemented, as I do not have an OS X
 machine to develop or test on.
@@ -56,7 +52,6 @@ Todo / Roadmap
 
 - Correct LED enumeration on Linux.
 - OS X support.
-- Force feedback / haptics.
 - Win32-only headset interaction API.
 - non-Win32-only LED/XBOX-button support (maybe).
 - Feature-detection routines.
