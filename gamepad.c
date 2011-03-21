@@ -172,7 +172,7 @@ static void GamepadPlatformInit(void) {
 	/* FIXME: flag error if hot-plugging can't be supported? */
 	if (MON != NULL) {
 		udev_monitor_enable_receiving(MON);
-		/* udev_monitor_filter_add_match_devtype(MON, "input"); */
+		udev_monitor_filter_add_match_subsystem_devtype(MON, "input", NULL);
 	}
 
 	/* enumerate joypad devices */
