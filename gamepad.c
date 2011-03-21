@@ -7,20 +7,25 @@
 
 #include <math.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "gamepad.h"
 
 /* Platform-specific includes */
 #if defined(_WIN32)
 #	define WIN32_LEAN_AND_MEAN 1
+#	undef UNICODE
 #	include "windows.h"
 #	include "xinput.h"
 #	pragma comment(lib, "xinput.lib")
-#else
+#elif defined(__linux__)
 #	include <linux/joystick.h>
 #	include <stdio.h>
 #	include <fcntl.h>
 #	include <unistd.h>
+#	include <libudev.h>
+#else
+#	error "Unknown platform in gamepad.c"
 #endif
 
 /* Axis information */
@@ -45,7 +50,10 @@ struct GAMEPAD_STATE {
 	GAMEPAD_AXIS stick[STICK_COUNT];
 	GAMEPAD_TRIGINFO trigger[TRIGGER_COUNT];
 	int bLast, bCurrent, flags;
-	int fd;	/* for Linux */
+#if defined(__linux__)
+	char* device;
+	int fd;
+#endif
 };
 
 /* State of the four gamepads */
@@ -55,12 +63,13 @@ static GAMEPAD_STATE STATE[4];
 #define FLAG_CONNECTED (1<<0)
 
 /* Prototypes */
-static void GamepadPlatformInit		(void);
-static void GamepadPlatformUpdate	(GAMEPAD_DEVICE gamepad);
-static void GamepadPlatformShutdown	(void);
+static void GamepadPlatformInit			(void);
+static void GamepadPlatformUpdate		(void);
+static void GamepadPlatformUpdateDevice	(GAMEPAD_DEVICE gamepad);
+static void GamepadPlatformShutdown		(void);
 
-static void GamepadUpdateStick		(GAMEPAD_AXIS* axis, float deadzone);
-static void GamepadUpdateTrigger	(GAMEPAD_TRIGINFO* trig);
+static void GamepadUpdateStick			(GAMEPAD_AXIS* axis, float deadzone);
+static void GamepadUpdateTrigger		(GAMEPAD_TRIGINFO* trig);
 
 /* Various values of PI */
 #define PI_1_4	0.78539816339744f
@@ -69,13 +78,17 @@ static void GamepadUpdateTrigger	(GAMEPAD_TRIGINFO* trig);
 #define PI		3.14159265358979f
 
 /* Platform-specific implementation code */
-#if defined(WIN32)
+#if defined(_WIN32)
 
 static void GamepadPlatformInit(void) {
 	/* no Win32 initialization required */
 }
 
-static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
+static void GamepadPlatformUpdate(void) {
+	/* no Win32 global update required */
+}
+
+static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	XINPUT_STATE xs;
 	if (XInputGetState(gamepad, &xs) == 0) {
 		STATE[gamepad].flags |= FLAG_CONNECTED;
@@ -97,22 +110,140 @@ static void GamepadPlatformShutdown(void) {
 	/* no Win32 shutdown required */
 }
 
-#else /* !defined(WIN32) */
+#elif defined(__linux__)
 
-static void GamepadPlatformInit(void) {
+/* UDev handles */
+static struct udev* UDEV = NULL;
+static struct udev_monitor* MON = NULL;
+
+/* Helper to add a new device */
+static void GamepadAddDevice(const char* devPath) {
 	int i;
+
+	/* try to find a free controller */
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		char dev[128];
-		snprintf(dev, sizeof(dev), "/dev/input/js%d", i);
-		STATE[i].fd = open(dev, O_RDONLY|O_NONBLOCK);
-		if (STATE[i].fd != -1) {
-			STATE[i].flags |= FLAG_CONNECTED;
+		if ((STATE[i].flags & FLAG_CONNECTED) == 0) {
+			STATE[i].device = strdup(devPath);
+			if (STATE[i].device != NULL) {
+				STATE[i].fd = open(STATE[i].device, O_RDONLY|O_NONBLOCK);
+				if (STATE[i].fd != -1) {
+					STATE[i].flags = FLAG_CONNECTED;
+				} else {
+					free(STATE[i].device);
+					STATE[i].device = NULL;
+				}
+			}
+			break;
 		}
 	}
 }
 
-static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
-	if (STATE[gamepad].fd & FLAG_CONNECTED) {
+/* Helper to remove a device */
+static void GamepadRemoveDevice(const char* devPath) {
+	int i;
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
+		if (STATE[i].device != NULL && strcmp(STATE[i].device, devPath) == 0) {
+			if (STATE[i].fd != -1) {
+				close(STATE[i].fd);
+				STATE[i].fd = -1;
+			}
+			free(STATE[i].device);
+			STATE[i].device = 0;
+			STATE[i].flags = 0;
+			break;
+		}
+	}
+}
+
+static void GamepadPlatformInit(void) {
+	struct udev_list_entry* devices;
+	struct udev_list_entry* item;
+	struct udev_enumerate* enu;
+
+	/* open the udev handle */
+	UDEV = udev_new();
+	if (UDEV == NULL) {
+		/* FIXME: flag error? */
+		return;
+	}
+	
+	/* open monitoring device (safe to fail) */
+	MON = udev_monitor_new_from_netlink(UDEV, "udev");
+	/* FIXME: flag error if hot-plugging can't be supported? */
+	if (MON != NULL) {
+		udev_monitor_enable_receiving(MON);
+		/* udev_monitor_filter_add_match_devtype(MON, "input"); */
+	}
+
+	/* enumerate joypad devices */
+	enu = udev_enumerate_new(UDEV);
+	udev_enumerate_add_match_subsystem(enu, "input");
+	udev_enumerate_scan_devices(enu);
+	devices = udev_enumerate_get_list_entry(enu);
+
+	udev_list_entry_foreach(item, devices) {
+		const char* name;
+		const char* sysPath;
+		const char* devPath;
+		struct udev_device* dev;
+
+		name = udev_list_entry_get_name(item);
+		dev = udev_device_new_from_syspath(UDEV, name);
+		sysPath = udev_device_get_syspath(dev);
+		devPath = udev_device_get_devnode(dev);
+
+		if (sysPath != NULL && devPath != NULL && strstr(sysPath, "/js") != 0) {
+			GamepadAddDevice(devPath);
+		}
+
+		udev_device_unref(dev);
+	}
+
+	/* cleanup */
+	udev_enumerate_unref(enu);
+}
+
+static void GamepadPlatformUpdate(void) {
+	if (MON != NULL) {
+		fd_set r;
+		struct timeval tv;
+		int fd = udev_monitor_get_fd(MON);
+
+		/* set up a poll on the udev device */
+		FD_ZERO(&r);
+		FD_SET(fd, &r);
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+
+		select(fd + 1, &r, 0, 0, &tv);
+
+		/* test if we have a device change */
+		if (FD_ISSET(fd, &r)) {
+			struct udev_device* dev = udev_monitor_receive_device(MON);
+			if (dev) {
+				const char* devNode = udev_device_get_devnode(dev);
+				const char* sysPath = udev_device_get_syspath(dev);
+				const char* action = udev_device_get_action(dev);
+				sysPath = udev_device_get_syspath(dev);
+				action = udev_device_get_action(dev);
+
+				if (strstr(sysPath, "/js") != 0) {
+					if (strcmp(action, "remove") == 0) {
+						GamepadRemoveDevice(devNode);
+					} else if (strcmp(action, "add") == 0) {
+						GamepadAddDevice(devNode);
+					}
+				}
+
+				udev_device_unref(dev);
+			}
+		}
+	}
+}
+
+static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
+	if (STATE[gamepad].flags & FLAG_CONNECTED) {
 		struct js_event je;
 		while (read(STATE[gamepad].fd, &je, sizeof(je)) > 0) {
 			int button;
@@ -186,12 +317,26 @@ static void GamepadPlatformUpdate(GAMEPAD_DEVICE gamepad) {
 
 static void GamepadPlatformShutdown(void) {
 	int i;
+
+	/* cleanup udev */
+	udev_monitor_unref(MON);
+	udev_unref(UDEV);
+
+	/* cleanup devices */
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		if (STATE[i].flags & FLAG_CONNECTED) {
+		if (STATE[i].device != NULL) {
+			free(STATE[i].device);
+		}
+
+		if (STATE[i].fd != -1) {
 			close(STATE[i].fd);
 		}
 	}
 }
+
+#else /* !defined(_WIN32) && !defined(__linux__) */
+
+#	error "Unknown platform in gamepad.c"
 
 #endif /* end of platform implementations */
 
@@ -208,13 +353,15 @@ void GamepadShutdown(void) {
 }
 
 void GamepadUpdate(void) {
+	GamepadPlatformUpdate();
+
 	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		/* store previous button state */
 		STATE[i].bLast = STATE[i].bCurrent;
 
 		/* per-platform update routines */
-		GamepadPlatformUpdate((GAMEPAD_DEVICE)i);
+		GamepadPlatformUpdateDevice((GAMEPAD_DEVICE)i);
 
 		/* calculate refined stick and trigger values */
 		if ((STATE[i].flags & FLAG_CONNECTED) != 0) {
