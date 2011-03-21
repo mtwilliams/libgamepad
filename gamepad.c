@@ -53,6 +53,7 @@ struct GAMEPAD_STATE {
 #if defined(__linux__)
 	char* device;
 	int fd;
+	int effect;
 #endif
 };
 
@@ -66,6 +67,7 @@ static GAMEPAD_STATE STATE[4];
 static void GamepadPlatformInit			(void);
 static void GamepadPlatformUpdate		(void);
 static void GamepadPlatformUpdateDevice	(GAMEPAD_DEVICE gamepad);
+static void GamepadPlatformSetRumble	(GAMEPAD_DEVICE gamepad, float left, float right);
 static void GamepadPlatformShutdown		(void);
 
 static void GamepadUpdateStick			(GAMEPAD_AXIS* axis, float deadzone);
@@ -108,6 +110,14 @@ static void GamepadPlatformUpdateDevice(GAMEPAD_DEVICE gamepad) {
 
 static void GamepadPlatformShutdown(void) {
 	/* no Win32 shutdown required */
+}
+
+static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
+	XINPUT_VIBRATION vib;
+	ZeroMemory(&vib, sizeof(vib));
+	vib.wLeftMotorSpeed = left * 65535;
+	vib.wRightMotorSpeed = right * 65535;
+	XInputSetState(gamepad, &vib);
 }
 
 #elif defined(__linux__)
@@ -159,6 +169,13 @@ static void GamepadPlatformInit(void) {
 	struct udev_list_entry* devices;
 	struct udev_list_entry* item;
 	struct udev_enumerate* enu;
+	int i;
+
+	/* clear fd and effect to -1 rather than the default 0 */
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
+		STATE[i].fd = -1;
+		STATE[i].effect = -1;
+	}
 
 	/* open the udev handle */
 	UDEV = udev_new();
@@ -334,6 +351,49 @@ static void GamepadPlatformShutdown(void) {
 	}
 }
 
+static void GamepadPlatformSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
+	if (STATE[gamepad].fd != -1) {
+		struct input_event play;
+
+		/* delete any existing effect */
+		if (STATE[gamepad].effect != -1) {
+			/* stop the effect */
+			play.type = EV_FF;
+			play.code = STATE[gamepad].effect;
+			play.value = 0;
+
+			write(STATE[gamepad].fd, (const void*)&play, sizeof(play));
+
+			/* delete the effect */
+			ioctl(STATE[gamepad].fd, EVIOCRMFF, STATE[gamepad].effect);
+		}
+
+		/* if rumble parameters are non-zero, start the new effect */
+		if (left != 0.f || right != 0.f) {
+			struct ff_effect ff;
+
+			/* define an effect for this rumble setting */
+			ff.type = FF_RUMBLE;
+			ff.id = -1;
+			ff.u.rumble.strong_magnitude = left * 65535;
+			ff.u.rumble.weak_magnitude = right * 65535;
+			ff.replay.length = 5000;
+			ff.replay.delay = 0;
+
+			/* upload the effect */
+			ioctl(STATE[gamepad].fd, EVIOCSFF, &ff);
+			STATE[gamepad].effect = ff.id;
+
+			/* play the effect */
+			play.type = EV_FF;
+			play.code = STATE[gamepad].effect;
+			play.value = 1;
+
+			write(STATE[gamepad].fd, (const void*)&play, sizeof(play));
+		}
+	}
+}
+
 #else /* !defined(_WIN32) && !defined(__linux__) */
 
 #	error "Unknown platform in gamepad.c"
@@ -376,6 +436,10 @@ void GamepadUpdate(void) {
 
 int GamepadIsConnected(GAMEPAD_DEVICE device) {
 	return STATE[device].flags & FLAG_CONNECTED;
+}
+
+void GamepadSetRumble(GAMEPAD_DEVICE device, float left, float right) {
+	GamepadPlatformSetRumble(device, left, right);
 }
 
 int GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
