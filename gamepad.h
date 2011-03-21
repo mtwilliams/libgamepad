@@ -5,7 +5,8 @@
  * LICENSE: MIT/X
  */
 
-#pragma once
+#if !defined(GAMEPAD_H)
+#define GAMEPAD_H 1
 
 enum GAMEPAD_DEVICE {
 	GAMEPAD_0,
@@ -89,3 +90,5 @@ extern float	GamepadStickLength		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
 extern float	GamepadStickAngle		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
 
 extern int		GamepadStickDir			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir);
+
+#endif
