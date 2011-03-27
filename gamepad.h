@@ -14,6 +14,8 @@
 #	else
 #		define GAMEPAD_API __declspec(dllimport)
 #	endif
+#elif defined(__GNUC__) && defined(GAMEPAD_EXPORT)
+#	define GAMEPAD_API __attribute__((visibility("default")))
 #else
 #	define GAMEPAD_API extern
 #endif
@@ -183,6 +185,33 @@ GAMEPAD_API int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigg
  * \returns Trigger depression magnitude (0 to 1).
  */
 GAMEPAD_API float GamepadTriggerLength(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+
+/**
+ * Test if a trigger is depressed
+ *
+ * \param device The device to check.
+ * \param trigger The trigger to check.
+ * \returns GAMEPAD_TRUE if down, GAMEPAD_FALSE otherwise.
+ */
+GAMEPAD_API GAMEPAD_BOOL GamepadTriggerDown(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+
+/**
+ * Test if a trigger is depressed
+ *
+ * \param device The device to check.
+ * \param trigger The trigger to check.
+ * \returns GAMEPAD_TRUE if triggered, GAMEPAD_FALSE otherwise.
+ */
+GAMEPAD_API GAMEPAD_BOOL GamepadTriggerTriggered(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+
+/**
+ * Test if a trigger is depressed
+ *
+ * \param device The device to check.
+ * \param trigger The trigger to check.
+ * \returns GAMEPAD_TRUE if released, GAMEPAD_FALSE otherwise.
+ */
+GAMEPAD_API GAMEPAD_BOOL GamepadTriggerReleased(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
 /**
  * Set the rumble motors on/off.
