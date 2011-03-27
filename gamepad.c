@@ -9,6 +9,7 @@
 #include <string.h>
 #include <malloc.h>
 
+#define GAMEPAD_EXPORT
 #include "gamepad.h"
 
 /* Platform-specific includes */
@@ -353,9 +354,10 @@ void GamepadShutdown(void) {
 }
 
 void GamepadUpdate(void) {
+	int i;
+
 	GamepadPlatformUpdate();
 
-	int i;
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		/* store previous button state */
 		STATE[i].bLast = STATE[i].bCurrent;
