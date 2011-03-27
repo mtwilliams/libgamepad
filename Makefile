@@ -1,10 +1,17 @@
 all: test
 
-gamepad.o: gamepad.c gamepad.h
-	$(CC) -o $@ -c $< $(CCFLAGS)
+clean:
+	rm -f test libgamepad.so gamepad.o
 
-libgamepad.so: gamepad.c gamepad.h
-	$(CC) -shared -o $@ -Wl,-soname,libgamepad.so.1 -fPIC -c $< $(CCFLAGS) -ludev
+gamepad.o: gamepad.c gamepad.h
+	$(CC) -c -fPIC -fvisibility=hidden -Wall -Werror -o $@ $< $(CCFLAGS)
+
+libgamepad.so: gamepad.o gamepad.h
+	$(CC) -shared -Wl,-soname,libgamepad.so.1 -o $@ $< $(CCFLAGS) -lc -lm -ludev
 
 test: main.c libgamepad.so
-	$(CC) -o $@ $< -Wl,-rpath,. -L. -lgamepad -lm -lcurses -ludev
+	$(CC) -o $@ $< -Wl,-rpath,. -L. -lgamepad -lcurses -ludev
+
+install: libgamepad.so
+
+.PHONY: all clean install

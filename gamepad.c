@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <malloc.h>
 
-#define GAMEPAD_EXPORT
+#define GAMEPAD_EXPORT 1
 #include "gamepad.h"
 
 /* Platform-specific includes */
@@ -445,7 +445,7 @@ void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
 #endif /* end of platform implementations */
 
 GAMEPAD_BOOL GamepadIsConnected(GAMEPAD_DEVICE device) {
-	return (STATE[device].flags & FLAG_CONNECTED != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+	return (STATE[device].flags & FLAG_CONNECTED) != 0 ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 GAMEPAD_BOOL GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
