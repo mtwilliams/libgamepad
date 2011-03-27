@@ -5,3 +5,4 @@ build
 *.user
 *.suo
 *.o
+*.so.1
