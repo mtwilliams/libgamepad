@@ -92,9 +92,9 @@ int main() {
 		for (i = 0; i != GAMEPAD_COUNT; ++i) {
 			if (GamepadIsConnected(i)) {
 				for (j = 0; j != BUTTON_COUNT; ++j) {
-					if (GamepadButtonTriggered(i, 1 << j)) {
+					if (GamepadButtonTriggered(i, j)) {
 						logevent("[%d] button triggered: %d", i, j);
-					} else if (GamepadButtonReleased(i, 1 << j)) {
+					} else if (GamepadButtonReleased(i, j)) {
 						logevent("[%d] button released:  %d", i, j);
 					}
 				}

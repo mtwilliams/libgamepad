@@ -36,20 +36,22 @@ enum GAMEPAD_DEVICE {
  * Enumeration of the possible buttons.
  */
 enum GAMEPAD_BUTTON {
-	BUTTON_DPAD_UP			= (1<<0),	/**< UP on the direction pad */
-	BUTTON_DPAD_DOWN		= (1<<1),	/**< DOWN on the direction pad */
-	BUTTON_DPAD_LEFT		= (1<<2),	/**< LEFT on the direction pad */
-	BUTTON_DPAD_RIGHT		= (1<<3),	/**< RIGHT on the direction pad */
-	BUTTON_START			= (1<<4),	/**< START button */
-	BUTTON_BACK				= (1<<5),	/**< BACK button */
-	BUTTON_LEFT_THUMB		= (1<<6),	/**< Left analog stick button */
-	BUTTON_RIGHT_THUMB		= (1<<7),	/**< Right analog stick button */
-	BUTTON_LEFT_SHOULDER	= (1<<8),	/**< Left bumper button */
-	BUTTON_RIGHT_SHOULDER	= (1<<9),	/**< Right bumper button */
-	BUTTON_A				= (1<<12),	/**< A button */
-	BUTTON_B				= (1<<13),	/**< B button */
-	BUTTON_X				= (1<<14),	/**< X button */
-	BUTTON_Y				= (1<<15),	/**< Y button */
+	BUTTON_DPAD_UP			= 0,	/**< UP on the direction pad */
+	BUTTON_DPAD_DOWN		= 1,	/**< DOWN on the direction pad */
+	BUTTON_DPAD_LEFT		= 2,	/**< LEFT on the direction pad */
+	BUTTON_DPAD_RIGHT		= 3,	/**< RIGHT on the direction pad */
+	BUTTON_START			= 4,	/**< START button */
+	BUTTON_BACK				= 5,	/**< BACK button */
+	BUTTON_LEFT_THUMB		= 6,	/**< Left analog stick button */
+	BUTTON_RIGHT_THUMB		= 7,	/**< Right analog stick button */
+	BUTTON_LEFT_SHOULDER	= 8,	/**< Left bumper button */
+	BUTTON_RIGHT_SHOULDER	= 9,	/**< Right bumper button */
+	BUTTON_A				= 12,	/**< A button */
+	BUTTON_B				= 13,	/**< B button */
+	BUTTON_X				= 14,	/**< X button */
+	BUTTON_Y				= 15,	/**< Y button */
+
+	BUTTON_COUNT					/**< Maximum number of supported buttons */
 };
 
 /**

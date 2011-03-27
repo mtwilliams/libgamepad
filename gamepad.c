@@ -30,6 +30,8 @@
 #	error "Unknown platform in gamepad.c"
 #endif
 
+#define BUTTON_TO_FLAG(b) (1 << (b))
+
 /* Axis information */
 typedef struct GAMEPAD_AXIS GAMEPAD_AXIS;
 struct GAMEPAD_AXIS {
@@ -325,9 +327,9 @@ static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 
 				/* set or unset the button */
 				if (je.value) {
-					STATE[gamepad].bCurrent |= button;
+					STATE[gamepad].bCurrent |= BUTTON_TO_FLAG(button);
 				} else {
-					STATE[gamepad].bCurrent ^= button;
+					STATE[gamepad].bCurrent ^= BUTTON_TO_FLAG(button);
 				}
 					
 				break;
@@ -342,24 +344,24 @@ static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 				case 5:	STATE[gamepad].trigger[TRIGGER_RIGHT].value = (je.value + 32768) >> 8; break;
 				case 6:
 					if (je.value == -32767) {
-						STATE[gamepad].bCurrent |= BUTTON_DPAD_LEFT;
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_RIGHT;
+						STATE[gamepad].bCurrent |= BUTTON_TO_FLAG(BUTTON_DPAD_LEFT);
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_RIGHT);
 					} else if (je.value == 32767) {
-						STATE[gamepad].bCurrent |= BUTTON_DPAD_RIGHT;
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_LEFT;
+						STATE[gamepad].bCurrent |= BUTTON_TO_FLAG(BUTTON_DPAD_RIGHT);
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_LEFT);
 					} else {
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_LEFT & ~BUTTON_DPAD_RIGHT;
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_LEFT) & ~BUTTON_TO_FLAG(BUTTON_DPAD_RIGHT);
 					}
 					break;
 				case 7:
 					if (je.value == -32767) {
-						STATE[gamepad].bCurrent |= BUTTON_DPAD_UP;
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_DOWN;
+						STATE[gamepad].bCurrent |= BUTTON_TO_FLAG(BUTTON_DPAD_UP);
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_DOWN);
 					} else if (je.value == 32767) {
-						STATE[gamepad].bCurrent |= BUTTON_DPAD_DOWN;
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_UP;
+						STATE[gamepad].bCurrent |= BUTTON_TO_FLAG(BUTTON_DPAD_DOWN);
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_UP);
 					} else {
-						STATE[gamepad].bCurrent &= ~BUTTON_DPAD_UP & ~BUTTON_DPAD_DOWN;
+						STATE[gamepad].bCurrent &= ~BUTTON_TO_FLAG(BUTTON_DPAD_UP) & ~BUTTON_TO_FLAG(BUTTON_DPAD_DOWN);
 					}
 					break;
 				default: break;
@@ -447,17 +449,17 @@ GAMEPAD_BOOL GamepadIsConnected(GAMEPAD_DEVICE device) {
 }
 
 GAMEPAD_BOOL GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return (STATE[device].bCurrent & button) != 0 ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+	return (STATE[device].bCurrent & BUTTON_TO_FLAG(button)) != 0 ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 GAMEPAD_BOOL GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return ((STATE[device].bLast & button) == 0 &&
-			(STATE[device].bCurrent & button) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+	return ((STATE[device].bLast & BUTTON_TO_FLAG(button)) == 0 &&
+			(STATE[device].bCurrent & BUTTON_TO_FLAG(button)) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 GAMEPAD_BOOL GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return ((STATE[device].bCurrent & button) == 0 &&
-			(STATE[device].bLast & button) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+	return ((STATE[device].bCurrent & BUTTON_TO_FLAG(button)) == 0 &&
+			(STATE[device].bLast & BUTTON_TO_FLAG(button)) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
