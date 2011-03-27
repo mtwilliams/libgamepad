@@ -1,2 +1,6 @@
 libgamepad.so
 test
+build
+*.ncb
+*.user
+*.suo

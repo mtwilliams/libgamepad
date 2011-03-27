@@ -8,16 +8,26 @@
 #if !defined(GAMEPAD_H)
 #define GAMEPAD_H 1
 
+#if defined(_WIN32)
+#	if defined(GAMEPAD_EXPORT)
+#		define GAMEPAD_API __declspec(dllexport)
+#	else
+#		define GAMEPAD_API __declspec(dllimport)
+#	endif
+#else
+#	define GAMEPAD_API extern
+#endif
+
 /**
  * Enumeration of the possible devices.
  *
  * Only four devices are supported as this is the limit of Windows.
  */
 enum GAMEPAD_DEVICE {
-	GAMEPAD_0,	/**< First gamepad */
-	GAMEPAD_1,	/**< Second gamepad */
-	GAMEPAD_2,	/**< Third gamepad */
-	GAMEPAD_3,	/**< Fourth gamepad */
+	GAMEPAD_0 = 0,	/**< First gamepad */
+	GAMEPAD_1 = 1,	/**< Second gamepad */
+	GAMEPAD_2 = 2,	/**< Third gamepad */
+	GAMEPAD_3 = 3,	/**< Fourth gamepad */
 
 	GAMEPAD_COUNT	/**< Maximum number of supported gamepads */
 };
@@ -46,18 +56,18 @@ enum GAMEPAD_BUTTON {
  * Enumeration of the possible pressure/trigger buttons.
  */
 enum GAMEPAD_TRIGGER {
-	TRIGGER_LEFT,	/**< Left trigger */
-	TRIGGER_RIGHT,	/**< Right trigger */
+	TRIGGER_LEFT	= 0,	/**< Left trigger */
+	TRIGGER_RIGHT	= 1,	/**< Right trigger */
 
-	TRIGGER_COUNT	/**< Number of triggers */
+	TRIGGER_COUNT			/**< Number of triggers */
 };
 
 /**
  * Enumeration of the analog sticks.
  */
 enum GAMEPAD_STICK {
-	STICK_LEFT,		/**< Left stick */
-	STICK_RIGHT,	/**< Right stick */
+	STICK_LEFT		= 0,	/**< Left stick */
+	STICK_RIGHT		= 1,	/**< Right stick */
 
 	STICK_COUNT		/**< Number of analog sticks */
 };
@@ -68,10 +78,21 @@ enum GAMEPAD_STICK {
  * This is used for some of the convenience routines in the library.
  */
 enum GAMEPAD_STICKDIR {
-	STICKDIR_UP,	/**< UP direction */
-	STICKDIR_DOWN,	/**< DOWN direction */
-	STICKDIR_LEFT,	/**< LEFT direction */
-	STICKDIR_RIGHT	/**< RIGHT direction */
+	STICKDIR_CENTER	= 0,	/**< CENTER, no direction */
+	STICKDIR_UP		= 1,	/**< UP direction */
+	STICKDIR_DOWN	= 2,	/**< DOWN direction */
+	STICKDIR_LEFT	= 3,	/**< LEFT direction */
+	STICKDIR_RIGHT	= 4,	/**< RIGHT direction */
+
+	STICKDIR_COUNT
+};
+
+/**
+ * Enumeration for true/false values
+ */
+enum GAMEPAD_BOOL {
+	GAMEPAD_FALSE	= 0,	/**< FALSE value for boolean parameters */
+	GAMEPAD_TRUE	= 1		/**< TRUE value for boolean parameters */
 };
 
 typedef enum GAMEPAD_DEVICE GAMEPAD_DEVICE;
@@ -79,9 +100,7 @@ typedef enum GAMEPAD_BUTTON GAMEPAD_BUTTON;
 typedef enum GAMEPAD_TRIGGER GAMEPAD_TRIGGER;
 typedef enum GAMEPAD_STICK GAMEPAD_STICK;
 typedef enum GAMEPAD_STICKDIR GAMEPAD_STICKDIR;
-
-#define GAMEPAD_TRUE			1	/**< TRUE value for boolean parameters */
-#define GAMEPAD_FALSE			0	/**< FALSE value for boolean parameters */
+typedef enum GAMEPAD_BOOL GAMEPAD_BOOL;
 
 #define GAMEPAD_DEADZONE_LEFT_STICK		7849	/**< Suggested deadzone magnitude for left analog stick */
 #define	GAMEPAD_DEADZONE_RIGHT_STICK	8689	/**< Suggested deadzone magnitude for right analog stick */
@@ -92,7 +111,7 @@ typedef enum GAMEPAD_STICKDIR GAMEPAD_STICKDIR;
  *
  * This is critical on non-Windows platforms.
  */
-extern void		GamepadInit				(void);
+GAMEPAD_API void GamepadInit(void);
 
 /**
  * Shutdown the library.
@@ -101,14 +120,14 @@ extern void		GamepadInit				(void);
  *
  * This should be called after forking as well.
  */
-extern void		GamepadShutdown			(void);
+GAMEPAD_API void GamepadShutdown(void);
 
 /**
  * Updates the state of the gamepads.
  *
  * This must be called (at least) once per game loop.
  */
-extern void		GamepadUpdate			(void);
+GAMEPAD_API void GamepadUpdate(void);
 
 /**
  * Test if a particular gamepad is connected.
@@ -116,7 +135,7 @@ extern void		GamepadUpdate			(void);
  * \param device The device to check.
  * \returns GAMEPAD_TRUE if the device is connected, GAMEPAD_FALSE if it is not.
  */
-extern int		GamepadIsConnected		(GAMEPAD_DEVICE device);
+GAMEPAD_API GAMEPAD_BOOL GamepadIsConnected(GAMEPAD_DEVICE device);
 
 /**
  * Test if a particular button is being pressed.
@@ -125,7 +144,7 @@ extern int		GamepadIsConnected		(GAMEPAD_DEVICE device);
  * \param button The button to check.
  * \returns GAMEPAD_TRUE if the button is down, GAMEPAD_FALSE if it is not.
  */
-extern int		GamepadButtonDown		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+GAMEPAD_API GAMEPAD_BOOL GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 
 /**
  * Test if a particular button has been depressed since the previous call to GamepadUpdate.
@@ -134,7 +153,7 @@ extern int		GamepadButtonDown		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
  * \param button The button to check.
  * \returns GAMEPAD_TRUE if the button has been pressed, GAMEPAD_FALSE if it is not or if it was depressed the previous frame.
  */
-extern int		GamepadButtonTriggered	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+GAMEPAD_API GAMEPAD_BOOL GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 
 /**
  * Test if a particular button has been released since the previous call to GamepadUpdate.
@@ -143,7 +162,7 @@ extern int		GamepadButtonTriggered	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button
  * \param button The button to check.
  * \returns GAMEPAD_TRUE if the button has been released, GAMEPAD_FALSE if it is down or if it was not down the previous frame.
  */
-extern int		GamepadButtonReleased	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+GAMEPAD_API GAMEPAD_BOOL GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 
 /**
  * Get the trigger value (depression magnitude) in its raw form.
@@ -152,7 +171,7 @@ extern int		GamepadButtonReleased	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button)
  * \param trigger The trigger to check.
  * \returns Trigger depression magnitude (0 to 32767).
  */
-extern int		GamepadTriggerValue		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+GAMEPAD_API int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
 /**
  * Get the trigger value (depression magnitude) in normalized form.
@@ -161,7 +180,7 @@ extern int		GamepadTriggerValue		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger
  * \param trigger The trigger to check.
  * \returns Trigger depression magnitude (0 to 1).
  */
-extern float	GamepadTriggerLength	(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+GAMEPAD_API float GamepadTriggerLength(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
 /**
  * Set the rumble motors on/off.
@@ -174,7 +193,7 @@ extern float	GamepadTriggerLength	(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigge
  * \param left Left motor strengh (0 to 1).
  * \param right Right motor strengh (0 to 1).
  */
-extern void		GamepadSetRumble		(GAMEPAD_DEVICE device, float left, float right);
+GAMEPAD_API void GamepadSetRumble(GAMEPAD_DEVICE device, float left, float right);
 
 /**
  * Query the position of an analog stick as raw values.
@@ -189,7 +208,7 @@ extern void		GamepadSetRumble		(GAMEPAD_DEVICE device, float left, float right);
  * \param outX Pointer to integer to store the X magnitude in (-32767 to 32767).
  * \param outX Pointer to integer to store the Y magnitude in (-32767 to 32767).
  */
-extern void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
+GAMEPAD_API void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
 
 /**
  * Query the position of an analog stick as normalized values.
@@ -204,7 +223,7 @@ extern void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* 
  * \param outX Pointer to float to store the X magnitude in (-1 to 1).
  * \param outX Pointer to float to store the Y magnitude in (-1 to 1).
  */
-extern void		GamepadStickNormXY		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
+GAMEPAD_API void GamepadStickNormXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
 
 /**
  * Query the magnitude of an analog stick.
@@ -216,7 +235,7 @@ extern void		GamepadStickNormXY		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, fl
  * \param stick The stick to check.
  * \returns The magnitude of the stick (0 to 1).
  */
-extern float	GamepadStickLength		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+GAMEPAD_API float GamepadStickLength(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
 
 /**
  * Query the direction of a stick (in radians).
@@ -229,10 +248,24 @@ extern float	GamepadStickLength		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
  * \param stick The stick to check.
  * \returns The angle of the stick (0 to 2*PI).
  */
-extern float	GamepadStickAngle		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+GAMEPAD_API float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
 
 /**
- * Test whether a stick is pressed in a particular direction.
+ * Get the direction the stick is pushed in (if any).
+ *
+ * This is a useful utility function for when the stick should be treated as a simple
+ * directional pad, such as for menu UIs.
+ *
+ * \param device The device to check.
+ * \param stick The trigger to check.
+ * \returns The stick's current direction.
+ */
+GAMEPAD_API GAMEPAD_STICKDIR GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+
+/**
+ * Test whether a stick has been pressed in a particular direction since the last update.
+ *
+ * This only returns true if the stick was centered last frame.
  *
  * This is a useful utility function for when the stick should be treated as a simple
  * directional pad, such as for menu UIs.
@@ -242,6 +275,6 @@ extern float	GamepadStickAngle		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
  * \param stickdir The direction to check for.
  * \returns GAMEPAD_TRUE if the stick is pressed in the specified direction, GAMEPAD_FALSE otherwise.
  */
-extern int		GamepadStickDir			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir);
+GAMEPAD_API GAMEPAD_BOOL GamepadStickDirTriggered(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir);
 
 #endif
