@@ -3,6 +3,25 @@
 
 #include "gamepad.h"
 
+static const char* button_names[] = {
+	"d-pad up",
+	"d-pad down",
+	"d-pad left",
+	"d-pad right",
+	"start",
+	"back",
+	"left thumb",
+	"right thumb",
+	"left shoulder",
+	"right shoulder",
+	"???",
+	"???",
+	"A",
+	"B",
+	"X",
+	"Y"
+};
+
 static int line = 0;
 
 static void logevent(const char* format, ...) {
@@ -93,9 +112,9 @@ int main() {
 			if (GamepadIsConnected(i)) {
 				for (j = 0; j != BUTTON_COUNT; ++j) {
 					if (GamepadButtonTriggered(i, j)) {
-						logevent("[%d] button triggered: %d", i, j);
+						logevent("[%d] button triggered: %s", i, button_names[j]);
 					} else if (GamepadButtonReleased(i, j)) {
-						logevent("[%d] button released:  %d", i, j);
+						logevent("[%d] button released:  %s", i, button_names[j]);
 					}
 				}
 				for (j = 0; j != TRIGGER_COUNT; ++j) {
