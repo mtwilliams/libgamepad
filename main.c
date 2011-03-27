@@ -3,6 +3,26 @@
 
 #include "gamepad.h"
 
+static int line = 0;
+
+static void logevent(const char* format, ...) {
+	va_list va;
+
+	move(9 + line, 0);
+	clrtoeol();
+
+	move(8 + line, 0);
+	clrtoeol();
+
+	va_start(va, format);
+	vwprintw(stdscr, format, va);
+	va_end(va);
+
+	if (++line == 14) {
+		line = 0;
+	}
+}
+
 static void update(GAMEPAD_DEVICE dev) {
 	float lx, ly, rx, ry;
 
@@ -46,6 +66,8 @@ static void update(GAMEPAD_DEVICE dev) {
 }
 
 int main() {
+	int ch, i, j, k;
+
 	initscr();
 	cbreak();
 	noecho();
@@ -53,13 +75,48 @@ int main() {
 
 	GamepadInit();
 
-	while (getch() == ERR) {
+	while ((ch = getch()) != 'q') {
 		GamepadUpdate();
+
+		if (ch == 'r') {
+			for (i = 0; i != GAMEPAD_COUNT; ++i) {
+				GamepadSetRumble((GAMEPAD_DEVICE)i, 0.25f, 0.25f);
+			}
+		}
 
 		update(GAMEPAD_0);
 		update(GAMEPAD_1);
 		update(GAMEPAD_2);
 		update(GAMEPAD_3);
+
+		for (i = 0; i != GAMEPAD_COUNT; ++i) {
+			if (GamepadIsConnected(i)) {
+				for (j = 0; j != BUTTON_COUNT; ++j) {
+					if (GamepadButtonTriggered(i, 1 << j)) {
+						logevent("[%d] button triggered: %d", i, j);
+					} else if (GamepadButtonReleased(i, 1 << j)) {
+						logevent("[%d] button released:  %d", i, j);
+					}
+				}
+				for (j = 0; j != TRIGGER_COUNT; ++j) {
+					if (GamepadTriggerTriggered(i, j)) {
+						logevent("[%d] trigger pressed:  %d", i, j);
+					} else if (GamepadTriggerReleased(i, j)) {
+						logevent("[%d] trigger released: %d", i, j);
+					}
+				}
+				for (j = 0; j != STICK_COUNT; ++j) {
+					for (k = 1; k != STICKDIR_COUNT; ++k) {
+						if (GamepadStickDirTriggered(i, j, k)) {
+							logevent("[%d] stick direction:  %d -> %d", i, j, k);
+						}
+					}
+				}
+			}
+		}
+
+		move(6, 0);
+		printw("(q)uit (r)umble");
 
 		refresh();
 	}
