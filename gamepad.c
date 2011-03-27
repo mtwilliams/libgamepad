@@ -472,19 +472,21 @@ static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
 		axis->length = axis->angle = 0.0f;
 	}
 
+	/* update the stick direction */
 	axis->dirLast = axis->dirCurrent;
+	axis->dirCurrent = STICKDIR_CENTER;
 
-	/* check directions */
-	if (axis->angle >= PI_1_4 && axis->angle < PI_3_4) {
-		axis->dirCurrent = STICKDIR_UP;
-	} else if (axis->angle >= -PI_3_4 && axis->angle < -PI_1_4) {
-		axis->dirCurrent = STICKDIR_DOWN;
-	} else if (axis->angle >= PI_3_4 || axis->angle < -PI_3_4) {
-		axis->dirCurrent = STICKDIR_LEFT;
-	} else if (axis->angle < PI_1_4 && axis->angle >= -PI_1_4) {
-		axis->dirCurrent = STICKDIR_RIGHT;
-	} else {
-		axis->dirCurrent = STICKDIR_CENTER;
+	/* check direction to see if it's non-centered */
+	if (axis->length != 0.f) {
+		if (axis->angle >= PI_1_4 && axis->angle < PI_3_4) {
+			axis->dirCurrent = STICKDIR_UP;
+		} else if (axis->angle >= -PI_3_4 && axis->angle < -PI_1_4) {
+			axis->dirCurrent = STICKDIR_DOWN;
+		} else if (axis->angle >= PI_3_4 || axis->angle < -PI_3_4) {
+			axis->dirCurrent = STICKDIR_LEFT;
+		} else /* if (axis->angle < PI_1_4 && axis->angle >= -PI_1_4) */ {
+			axis->dirCurrent = STICKDIR_RIGHT;
+		}
 	}
 }
 
