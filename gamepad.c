@@ -508,7 +508,7 @@ GAMEPAD_STICKDIR GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 
 GAMEPAD_BOOL GamepadStickDirTriggered(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir) {
 	return (STATE[device].stick[stick].dirCurrent == dir &&
-			STATE[device].stick[stick].dirLast == STICKDIR_CENTER) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+			STATE[device].stick[stick].dirCurrent != STATE[device].stick[stick].dirLast) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 /* initialize common gamepad state */

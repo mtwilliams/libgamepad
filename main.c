@@ -106,7 +106,7 @@ int main() {
 					}
 				}
 				for (j = 0; j != STICK_COUNT; ++j) {
-					for (k = 1; k != STICKDIR_COUNT; ++k) {
+					for (k = 0; k != STICKDIR_COUNT; ++k) {
 						if (GamepadStickDirTriggered(i, j, k)) {
 							logevent("[%d] stick direction:  %d -> %d", i, j, k);
 						}
