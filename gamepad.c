@@ -7,6 +7,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <errno.h>
 #include <malloc.h>
 
 #define GAMEPAD_EXPORT
@@ -64,9 +65,11 @@ struct GAMEPAD_STATE {
 static GAMEPAD_STATE STATE[4];
 
 /* Note whether a gamepad is currently connected */
-#define FLAG_CONNECTED (1<<0)
+#define FLAG_CONNECTED	(1<<0)
+#define FLAG_RUMBLE		(1<<1)
 
 /* Prototypes for utility functions */
+static void GamepadResetState		(GAMEPAD_DEVICE gamepad);
 static void GamepadUpdateCommon		(void);
 static void GamepadUpdateDevice		(GAMEPAD_DEVICE gamepad);
 static void GamepadUpdateStick		(GAMEPAD_AXIS* axis, float deadzone);
@@ -82,7 +85,10 @@ static void GamepadUpdateTrigger	(GAMEPAD_TRIGINFO* trig);
 #if defined(_WIN32)
 
 void GamepadInit(void) {
-	ZeroMemory(STATE, sizeof(STATE));
+	int i;
+	for (i = 0; i != GAMEPAD_COUNT; ++i) {
+		STATE[i].flags = 0;
+	}
 }
 
 void GamepadUpdate(void) {
@@ -92,7 +98,13 @@ void GamepadUpdate(void) {
 static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 	XINPUT_STATE xs;
 	if (XInputGetState(gamepad, &xs) == 0) {
-		STATE[gamepad].flags |= FLAG_CONNECTED;
+		/* reset if the device was not already connected */
+		if ((STATE[gamepad].flags & FLAG_CONNECTED) == 0) {
+			GamepadResetState(gamepad);
+		}
+
+		/* mark that we are connected w/ rumble support */
+		STATE[gamepad].flags |= FLAG_CONNECTED|FLAG_RUMBLE;
 
 		/* update state */
 		STATE[gamepad].bCurrent = xs.Gamepad.wButtons;
@@ -103,6 +115,7 @@ static void GamepadUpdateDevice(GAMEPAD_DEVICE gamepad) {
 		STATE[gamepad].stick[STICK_RIGHT].x = xs.Gamepad.sThumbRX;
 		STATE[gamepad].stick[STICK_RIGHT].y = xs.Gamepad.sThumbRY;
 	} else {
+		/* disconnected */
 		STATE[gamepad].flags &= ~FLAG_CONNECTED;
 	}
 }
@@ -112,11 +125,13 @@ void GamepadShutdown(void) {
 }
 
 void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
-	XINPUT_VIBRATION vib;
-	ZeroMemory(&vib, sizeof(vib));
-	vib.wLeftMotorSpeed = left * 65535;
-	vib.wRightMotorSpeed = right * 65535;
-	XInputSetState(gamepad, &vib);
+	if ((STATE[gamepad].flags & FLAG_RUMBLE) != 0) {
+		XINPUT_VIBRATION vib;
+		ZeroMemory(&vib, sizeof(vib));
+		vib.wLeftMotorSpeed = left * 65535;
+		vib.wRightMotorSpeed = right * 65535;
+		XInputSetState(gamepad, &vib);
+	}
 }
 
 #elif defined(__linux__)
@@ -135,19 +150,41 @@ static void GamepadAddDevice(const char* devPath) {
 	/* try to find a free controller */
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
 		if ((STATE[i].flags & FLAG_CONNECTED) == 0) {
-			STATE[i].device = strdup(devPath);
-			if (STATE[i].device != NULL) {
-				STATE[i].fd = open(STATE[i].device, O_RDONLY|O_NONBLOCK);
-				if (STATE[i].fd != -1) {
-					STATE[i].flags = FLAG_CONNECTED;
-				} else {
-					free(STATE[i].device);
-					STATE[i].device = NULL;
-				}
-			}
 			break;
 		}
 	}
+	if (i == GAMEPAD_COUNT) {
+		return;
+	}
+
+	/* copy the device path */
+	STATE[i].device = strdup(devPath);
+	if (STATE[i].device == NULL) {
+		return;
+	}
+
+	/* reset device state */
+	GamepadResetState(i);
+
+	/* attempt to open the device in read-write mode, which we need fo rumble */
+	STATE[i].fd = open(STATE[i].device, O_RDWR|O_NONBLOCK);
+	if (STATE[i].fd != -1) {
+		STATE[i].flags = FLAG_CONNECTED|FLAG_RUMBLE;
+		return;
+	}
+
+	/* attempt to open in read-only mode if access was denied */
+	if (errno == EACCES) {
+		STATE[i].fd = open(STATE[i].device, O_RDONLY|O_NONBLOCK);
+		if (STATE[i].fd != -1) {
+			STATE[i].flags = FLAG_CONNECTED;
+			return;
+		}
+	}
+
+	/* could not open the device at all */
+	free(STATE[i].device);
+	STATE[i].device = NULL;
 }
 
 /* Helper to remove a device */
@@ -173,11 +210,9 @@ void GamepadInit(void) {
 	struct udev_enumerate* enu;
 	int i;
 
-	/* initialize state */
+	/* initialize connection state */
 	for (i = 0; i != GAMEPAD_COUNT; ++i) {
-		memset(STATE[i].stick, 0, sizeof(STATE[i].stick));
-		memset(STATE[i].trigger, 0, sizeof(STATE[i].trigger));
-		STATE[i].bLast = STATE[i].bCurrent = STATE[i].flags = 0;
+		STATE[i].flags = 0;
 		STATE[i].fd = STATE[i].effect = -1;
 	}
 
@@ -381,14 +416,15 @@ void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
 			/* define an effect for this rumble setting */
 			ff.type = FF_RUMBLE;
 			ff.id = -1;
-			ff.u.rumble.strong_magnitude = left * 65535;
-			ff.u.rumble.weak_magnitude = right * 65535;
-			ff.replay.length = 5000;
+			ff.u.rumble.strong_magnitude = (unsigned short)(left * 65535);
+			ff.u.rumble.weak_magnitude = (unsigned short)(right * 65535);
+			ff.replay.length = 5;
 			ff.replay.delay = 0;
 
 			/* upload the effect */
-			ioctl(STATE[gamepad].fd, EVIOCSFF, &ff);
-			STATE[gamepad].effect = ff.id;
+			if (ioctl(STATE[gamepad].fd, EVIOCSFF, &ff) != -1) {
+				STATE[gamepad].effect = ff.id;
+			}
 
 			/* play the effect */
 			play.type = EV_FF;
@@ -407,7 +443,7 @@ void GamepadSetRumble(GAMEPAD_DEVICE gamepad, float left, float right) {
 #endif /* end of platform implementations */
 
 GAMEPAD_BOOL GamepadIsConnected(GAMEPAD_DEVICE device) {
-	return STATE[device].flags & FLAG_CONNECTED ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+	return (STATE[device].flags & FLAG_CONNECTED != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 GAMEPAD_BOOL GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
@@ -471,6 +507,13 @@ GAMEPAD_STICKDIR GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 GAMEPAD_BOOL GamepadStickDirTriggered(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir) {
 	return (STATE[device].stick[stick].dirCurrent == dir &&
 			STATE[device].stick[stick].dirLast == STICKDIR_CENTER) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+}
+
+/* initialize common gamepad state */
+static void GamepadResetState(GAMEPAD_DEVICE gamepad) {
+	memset(STATE[gamepad].stick, 0, sizeof(STATE[gamepad].stick));
+	memset(STATE[gamepad].trigger, 0, sizeof(STATE[gamepad].trigger));
+	STATE[gamepad].bLast = STATE[gamepad].bCurrent = 0;
 }
 
 /* Update individual sticks */
