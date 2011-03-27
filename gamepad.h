@@ -58,10 +58,11 @@ enum GAMEPAD_STICK {
 };
 
 enum GAMEPAD_STICKDIR {
-	STICKDIR_UP		= 0,
-	STICKDIR_DOWN	= 1,
-	STICKDIR_LEFT	= 2,
-	STICKDIR_RIGHT	= 3,
+	STICKDIR_CENTER	= 0,
+	STICKDIR_UP		= 1,
+	STICKDIR_DOWN	= 2,
+	STICKDIR_LEFT	= 3,
+	STICKDIR_RIGHT	= 4,
 
 	STICKDIR_COUNT
 };
@@ -85,19 +86,24 @@ PUBLIC void		GamepadInit				(void);
 PUBLIC void		GamepadShutdown			(void);
 PUBLIC void		GamepadUpdate			(void);
 
-PUBLIC int		GamepadIsConnected		(GAMEPAD_DEVICE device);
+PUBLIC GAMEPAD_BOOL			GamepadIsConnected			(GAMEPAD_DEVICE device);
 
-PUBLIC int		GamepadButtonDown		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
-PUBLIC int		GamepadButtonTriggered	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
-PUBLIC int		GamepadButtonReleased	(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+PUBLIC GAMEPAD_BOOL			GamepadButtonDown			(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+PUBLIC GAMEPAD_BOOL			GamepadButtonTriggered		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
+PUBLIC GAMEPAD_BOOL			GamepadButtonReleased		(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button);
 
-PUBLIC int		GamepadTriggerValue		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
-PUBLIC float	GamepadTriggerLength	(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+PUBLIC int					GamepadTriggerValue			(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+PUBLIC float				GamepadTriggerLength		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
-PUBLIC void		GamepadStickXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
-PUBLIC void		GamepadStickNormXY		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
+PUBLIC GAMEPAD_BOOL			GamepadTriggerDown			(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+PUBLIC GAMEPAD_BOOL			GamepadTriggerTriggered		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
+PUBLIC GAMEPAD_BOOL			GamepadTriggerReleased		(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger);
 
-PUBLIC float	GamepadStickLength		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
-PUBLIC float	GamepadStickAngle		(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+PUBLIC void					GamepadStickXY				(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int* outX, int* outY);
+PUBLIC void					GamepadStickNormXY			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, float* outX, float* outY);
 
-PUBLIC int		GamepadStickDir			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir);
+PUBLIC float				GamepadStickLength			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+PUBLIC float				GamepadStickAngle			(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+
+PUBLIC GAMEPAD_STICKDIR		GamepadStickDir				(GAMEPAD_DEVICE device, GAMEPAD_STICK stick);
+PUBLIC GAMEPAD_BOOL			GamepadStickDirTriggered	(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir);

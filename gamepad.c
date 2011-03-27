@@ -36,6 +36,7 @@ struct GAMEPAD_AXIS {
 	float nx, ny;
 	float length;
 	float angle;
+	GAMEPAD_STICKDIR dirLast, dirCurrent;
 };
 
 /* Trigger value information */
@@ -43,6 +44,7 @@ typedef struct GAMEPAD_TRIGINFO GAMEPAD_TRIGINFO;
 struct GAMEPAD_TRIGINFO {
 	int value;
 	float length;
+	GAMEPAD_BOOL pressedLast, pressedCurrent;
 };
 
 /* Structure for state of a particular gamepad */
@@ -376,22 +378,22 @@ void GamepadUpdate(void) {
 	}
 }
 
-int GamepadIsConnected(GAMEPAD_DEVICE device) {
-	return STATE[device].flags & FLAG_CONNECTED;
+GAMEPAD_BOOL GamepadIsConnected(GAMEPAD_DEVICE device) {
+	return STATE[device].flags & FLAG_CONNECTED ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
-int GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return (STATE[device].bCurrent & button) != 0;
+GAMEPAD_BOOL GamepadButtonDown(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+	return (STATE[device].bCurrent & button) != 0 ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
-int GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return (STATE[device].bLast & button) == 0 &&
-			(STATE[device].bCurrent & button) != 0;
+GAMEPAD_BOOL GamepadButtonTriggered(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+	return ((STATE[device].bLast & button) == 0 &&
+			(STATE[device].bCurrent & button) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
-int GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
-	return (STATE[device].bCurrent & button) == 0 &&
-			(STATE[device].bLast & button) != 0;
+GAMEPAD_BOOL GamepadButtonReleased(GAMEPAD_DEVICE device, GAMEPAD_BUTTON button) {
+	return ((STATE[device].bCurrent & button) == 0 &&
+			(STATE[device].bLast & button) != 0) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
@@ -400,6 +402,20 @@ int GamepadTriggerValue(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
 
 float GamepadTriggerLength(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
 	return STATE[device].trigger[trigger].length;
+}
+
+GAMEPAD_BOOL GamepadTriggerDown(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+	return STATE[device].trigger[trigger].pressedCurrent;
+}
+
+GAMEPAD_BOOL GamepadTriggerTriggered(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+	return (STATE[device].trigger[trigger].pressedCurrent &&
+			!STATE[device].trigger[trigger].pressedLast) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
+}
+
+GAMEPAD_BOOL GamepadTriggerReleased(GAMEPAD_DEVICE device, GAMEPAD_TRIGGER trigger) {
+	return (!STATE[device].trigger[trigger].pressedCurrent &&
+			STATE[device].trigger[trigger].pressedLast) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 void GamepadStickXY(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, int *outX, int *outY) {
@@ -420,25 +436,13 @@ float GamepadStickAngle(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
 	return STATE[device].stick[stick].angle;
 }
 
-int GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR stickdir) {
-	/* length must be non-zero */
-	if (STATE[device].stick[stick].length == 0.0f) {
-		return GAMEPAD_FALSE;
-	}
+GAMEPAD_STICKDIR GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STICK stick) {
+	return STATE[device].stick[stick].dirCurrent;
+}
 
-	/* check directions */
-	switch (stickdir) {
-	case STICKDIR_UP:
-		return STATE[device].stick[stick].angle >= PI_1_4 && STATE[device].stick[stick].angle < PI_3_4;
-	case STICKDIR_DOWN:
-		return STATE[device].stick[stick].angle >= -PI_3_4 && STATE[device].stick[stick].angle < -PI_1_4;
-	case STICKDIR_LEFT:
-		return STATE[device].stick[stick].angle >= PI_3_4 || STATE[device].stick[stick].angle < -PI_3_4;
-	case STICKDIR_RIGHT:
-		return STATE[device].stick[stick].angle < PI_1_4 && STATE[device].stick[stick].angle >= -PI_1_4;
-	default:
-		return GAMEPAD_FALSE;
-	}
+GAMEPAD_BOOL GamepadStickDirTriggered(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir) {
+	return (STATE[device].stick[stick].dirCurrent == dir &&
+			STATE[device].stick[stick].dirCurrent != STATE[device].stick[stick].dirLast) ? GAMEPAD_TRUE : GAMEPAD_FALSE;
 }
 
 /* Update stick info */
@@ -467,14 +471,33 @@ static void GamepadUpdateStick(GAMEPAD_AXIS* axis, float deadzone) {
 		axis->nx = axis->ny = 0.0f;
 		axis->length = axis->angle = 0.0f;
 	}
+
+	axis->dirLast = axis->dirCurrent;
+
+	/* check directions */
+	if (axis->angle >= PI_1_4 && axis->angle < PI_3_4) {
+		axis->dirCurrent = STICKDIR_UP;
+	} else if (axis->angle >= -PI_3_4 && axis->angle < -PI_1_4) {
+		axis->dirCurrent = STICKDIR_DOWN;
+	} else if (axis->angle >= PI_3_4 || axis->angle < -PI_3_4) {
+		axis->dirCurrent = STICKDIR_LEFT;
+	} else if (axis->angle < PI_1_4 && axis->angle >= -PI_1_4) {
+		axis->dirCurrent = STICKDIR_RIGHT;
+	} else {
+		axis->dirCurrent = STICKDIR_CENTER;
+	}
 }
 
 /* Update trigger info */
 static void GamepadUpdateTrigger(GAMEPAD_TRIGINFO* trig) {
+	trig->pressedLast = trig->pressedCurrent;
+
 	if (trig->value > GAMEPAD_DEADZONE_TRIGGER) {
 		trig->length = ((trig->value - GAMEPAD_DEADZONE_TRIGGER) / (255.0f - GAMEPAD_DEADZONE_TRIGGER));
+		trig->pressedCurrent = GAMEPAD_TRUE;
 	} else {
 		trig->value = 0;
 		trig->length = 0.0f;
+		trig->pressedCurrent = GAMEPAD_FALSE;
 	}
 }
