@@ -8,16 +8,24 @@
 #if !defined(GAMEPAD_H)
 #define GAMEPAD_H 1
 
-#if defined(_WIN32)
-#	if defined(GAMEPAD_EXPORT)
-#		define GAMEPAD_API __declspec(dllexport)
-#	else
-#		define GAMEPAD_API __declspec(dllimport)
-#	endif
-#elif defined(__GNUC__) && defined(GAMEPAD_EXPORT)
-#	define GAMEPAD_API __attribute__((visibility("default")))
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+#if defined(GAMEPAD_STATIC_LIB)
+#	define GAMEPAD_API
 #else
-#	define GAMEPAD_API extern
+#	if defined(_WIN32)
+#		if defined(GAMEPAD_EXPORT)
+#			define GAMEPAD_API __declspec(dllexport)
+#		else
+#			define GAMEPAD_API __declspec(dllimport)
+#		endif
+#	elif defined(__GNUC__) && defined(GAMEPAD_EXPORT)
+#		define GAMEPAD_API __attribute__((visibility("default")))
+#	else
+#		define GAMEPAD_API extern
+#	endif
 #endif
 
 /**
@@ -307,5 +315,9 @@ GAMEPAD_API GAMEPAD_STICKDIR GamepadStickDir(GAMEPAD_DEVICE device, GAMEPAD_STIC
  * \returns GAMEPAD_TRUE if the stick is pressed in the specified direction, GAMEPAD_FALSE otherwise.
  */
 GAMEPAD_API GAMEPAD_BOOL GamepadStickDirTriggered(GAMEPAD_DEVICE device, GAMEPAD_STICK stick, GAMEPAD_STICKDIR dir);
+
+#if defined(__cplusplus)
+} /* extern "C" */
+#endif
 
 #endif
