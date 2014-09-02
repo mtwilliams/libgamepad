@@ -1,6 +1,6 @@
-# Gamepad
+# libgamepad
 
-[![Build Status](https://travis-ci.org/bitbytestudios/gamepad.png?branch=master)](http://travis-ci.org/bitbytestudios/gamepad)
+[![Build Status](https://travis-ci.org/bitbytestudios/libgamepad.png?branch=master)](http://travis-ci.org/bitbytestudios/libgamepad)
 
 Abstracts gamepad access through an easy to use, cross-platform API.
 
@@ -30,12 +30,12 @@ What controllers does it support?
 How do I build it?
 ------------------
 
-    $ git clone https://github.com/bitbytestudios/gamepad.git
-    $ cd gamepad
+    $ git clone https://github.com/bitbytestudios/libgamepad.git
+    $ cd libgamepad
     $ ./configure
     $ make
 
-For more details please go [here](https://github.com/bitbytestudios/gamepad/wiki/Building).
+For more details please go [here](https://github.com/bitbytestudios/libgamepad/wiki/Building).
 
 How do I contribute?
 --------------------
