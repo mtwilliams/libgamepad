@@ -1,57 +1,71 @@
-Gamepad Libary
-==============
+# Gamepad
 
-This is a simple library whose sole purpose is to provide an easy to
-use and portable API for accessing the extremely popular and common
-Xbox/Xbox360 gamepads.
+[![Build Status](https://travis-ci.org/bitbytestudios/gamepad.png?branch=master)](http://travis-ci.org/bitbytestudios/gamepad)
 
-Currently supported platforms are Windows and Linux.  OS X is planned.
+Abstracts gamepad access through an easy to use, cross-platform API.
 
-Requirements
-============
+What platforms does it support?
+-------------------------------
 
-The header and source file can be dropped into a project's build.
+| Platform  | Toolchain               | Supported             |
+|:---------:|:-----------------------:|:---------------------:|
+| Windows   | Microsoft Visual Studio | <span>&#10003;</span> |
+| Windows   | MinGW/MSYS              |        Planned        |
+| Windows   | Cygwin                  |         Never         |
+| Mac OS X  | GCC or Clang            |        Planned        |
+| Linux     | GCC or Clang            |        Planned        |
+| BSD       | GCC or Clang            |         Maybe         |
+| Android   | GCC or Clang            |        Planned        |
+| iOS       | GCC or Clang            |         Maybe         |
+| Web       | Native Client           |         Maybe         |
+| Web       | emscripten              |         Maybe         |
 
-On Windows, XInput must be linked in.
+What controllers does it support?
+---------------------------------
 
-On Linux, libudev must be linked in.
+* Xbox
+* Xbox 360
+* Xbox One
 
-Limitations
-===========
+How do I build it?
+------------------
 
-The library only supports the functions which are compatible with
-all OSes.  Primarily missing are:
+    $ git clone https://github.com/bitbytestudios/gamepad.git
+    $ cd gamepad
+    $ ./configure
+    $ make
 
-- Headset/audio support (can only be supported on Windows)
-- XBOX button support (the big button in the middle of the controller)
-- LED control support
-- Battery status support
+For more details please go [here](https://github.com/bitbytestudios/gamepad/wiki/Building).
 
-Headsets are not supported in Linux via the Xbox controller, and the
-big XBOX button and LED control are not supported via XInput on Windows.
+How do I contribute?
+--------------------
 
-OS X support has not yet been implemented, as I do not have an OS X
-machine to develop or test on.
+See our contribution guide [here](https://github.com/bitbytestudios/meta/wiki/Contributing).
 
-There are no plans to support POSIX-style OSes other than Linux and OS X.
+How is it licensed?
+-------------------
 
-Platform Issues
-===============
+Under an MIT license with licensing agreements for closed platforms.
 
-On Linux, the LED turned on does not reflect correctly which device ID is
-used by the library.  I have not yet figured out how to either query the
-LED set or how to override the LED, and the xpad driver seems to assign
-them quite arbitrarily.
+```
+Copyright (c) 2014 Michael Williams
+Copyright (c) 2010-2011 Sean Middleditch
 
-Also on Linux, the library has no way to differentiate between gamepads
-and other joystick devices.  The library will almost certainly not work
-correctly with any device that isn't an XBox controller.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Todo / Roadmap
-==============
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-- Correct LED enumeration on Linux.
-- OS X support.
-- Win32-only headset interaction API.
-- non-Win32-only LED/XBOX-button support (maybe).
-- Feature-detection routines.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
