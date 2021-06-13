@@ -37,7 +37,8 @@ Temporary Items
 
 *~
 .directory
-
+*.o
+*.so
 #
 # Visual Studio
 #

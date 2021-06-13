@@ -34,7 +34,7 @@ static void logevent(const char* format, ...) {
 	clrtoeol();
 
 	va_start(va, format);
-	vwprintw(stdscr, format, va);
+	vw_printw(stdscr, format, va);
 	va_end(va);
 
 	if (++line == 14) {
